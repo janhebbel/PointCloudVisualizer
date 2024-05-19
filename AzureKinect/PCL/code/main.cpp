@@ -2,6 +2,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
+#include <chrono>
+
+#include <boost/thread/thread.hpp>
+#include <pcl/common/common_headers.h>
+#include <pcl/visualization/pcl_visualizer.h>
 
 #include "k4a.c"
 
@@ -14,6 +19,14 @@ v2f;
 
 typedef struct
 {
+    float x;
+    float y;
+    float z;
+}
+v3f;
+
+typedef struct
+{
     struct
     {
         float X;
@@ -21,8 +34,52 @@ typedef struct
         float Z;
     }
     Position;
+
+    struct
+    {
+        float R;
+        float G;
+        float B;
+    }
+    Color;
 }
 point;
+
+v3f HSV2RGB(v3f HSV) 
+{
+	v3f RGB;
+	
+    int I;
+    float F, P, Q, T;
+	
+	float H = HSV.x;
+	float S = HSV.y;
+	float V = HSV.z;
+	
+    if (S == 0) // No saturation => grayscale; V == lightness/darkness
+	{
+        RGB = { V, V, V };
+    }
+	else
+	{
+		H *= 6;
+		I = (int)H;
+		F = H - I;
+		P = V * (1 - S);
+		Q = V * (1 - S * F);
+		T = V * (1 - S * (1 - F));
+		switch (I) {
+			case 0:  RGB = {V, T, P}; break;
+			case 1:  RGB = {Q, V, P}; break;
+			case 2:  RGB = {P, V, T}; break;
+			case 3:  RGB = {P, Q, V}; break;
+			case 4:  RGB = {T, P, V}; break;
+			default: RGB = {V, P, Q}; break;
+		}
+	}
+	
+	return(RGB);
+}
 
 static void calculate_point_cloud(point *PointCloud, uint32_t *PointCount, v2f *XYMap, uint16_t *DepthMap, int DepthMapCount)
 {
@@ -53,15 +110,36 @@ static void calculate_point_cloud(point *PointCloud, uint32_t *PointCount, v2f *
             hue *= range;
             hue = range - hue;
 
-            // Point.rgb[0] = hue;
-            // Point.rgb[1] = 1.0f;
-            // Point.rgb[2] = 1.0f;
+            v3f RGB = HSV2RGB({ hue, 1.0f, 1.0f });
+
+            Point.Color.R = RGB.x;
+            Point.Color.G = RGB.y;
+            Point.Color.B = RGB.z;
 
             PointCloud[InsertIndex++] = Point;
         }
     }
 
     *PointCount = InsertIndex;
+}
+
+static void PrintFPS(float DeltaTime)
+{
+	static int Count = 0;
+	static float FrameTimeAcc = 0;
+	
+	int FramesToSumUp = 100;
+	if(Count == FramesToSumUp) 
+	{
+		printf("FPS: %f\n", 1.0f / (FrameTimeAcc / (float)FramesToSumUp));
+		FrameTimeAcc = 0;
+		Count = 0;
+	}
+	else
+	{
+		FrameTimeAcc += DeltaTime;
+		Count++;
+	}
 }
 
 int main(void)
@@ -99,14 +177,48 @@ int main(void)
         point *PointCloud = (point *)malloc(DepthMapCount * sizeof(point));
         uint32_t PointCount;
 
-        while(1)
+        boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
+        viewer->addPointCloud<pcl::PointXYZRGB>(cloud_ptr, "sample cloud");
+        viewer->setBackgroundColor(0, 0, 0);
+        viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud");
+        viewer->addCoordinateSystem(1.0);
+        viewer->initCameraParameters();
+
+        float DeltaTime = 0.0f;
+
+        while(!viewer->wasStopped())
         {
+            std::chrono::steady_clock::time_point Begin = std::chrono::steady_clock::now();
+
             camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
             calculate_point_cloud(PointCloud, &PointCount, XYMap, DepthMap, DepthMapCount);
 
             // display using pcl
+            cloud_ptr->points.clear();
 
-            break;
+            for (size_t i = 0; i < PointCount; ++i) 
+            {
+                pcl::PointXYZRGB Point;
+                Point.x = PointCloud[i].Position.X;
+                Point.y = PointCloud[i].Position.Y;
+                Point.z = PointCloud[i].Position.Z;
+                Point.r = PointCloud[i].Color.R * 255;
+                Point.g = PointCloud[i].Color.G * 255;
+                Point.b = PointCloud[i].Color.B * 255;
+                cloud_ptr->points.push_back(Point);
+            }
+
+            cloud_ptr->width = (int)cloud_ptr->points.size();
+            cloud_ptr->height = 1;
+
+            viewer->updatePointCloud(cloud_ptr, "sample cloud");
+
+            viewer->spinOnce(100);
+
+            std::chrono::steady_clock::time_point End = std::chrono::steady_clock::now();
+            DeltaTime = std::chrono::duration_cast<std::chrono::microseconds>(End - Begin).count() / 1000000.0;
+            PrintFPS(DeltaTime);
         }
     }
 
