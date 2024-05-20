@@ -10,13 +10,11 @@ set linker_flags=/opt:ref /subsystem:console user32.lib gdi32.lib shell32.lib op
 echo Building...
 echo:
 
-REM Debug Build:
 echo Debug
 cl %compile_flags% /MT /Od /Z7 /DDEBUG /Fe"debug" %files% /link %linker_flags%
 
 echo:
 
-REM Release Build
 echo Release
 cl %compile_flags% /MT /O2 /DRELEASE /Fe"release" %files% /link %linker_flags%
 
