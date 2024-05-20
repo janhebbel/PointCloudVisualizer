@@ -121,19 +121,32 @@ static void PrintFPS(float DeltaTime)
 {
 	static int Count = 0;
 	static float FrameTimeAcc = 0;
-	
-	int FramesToSumUp = 250;
-	if(Count == FramesToSumUp) 
-	{
-		printf("FPS: %f\n", 1.0f / (FrameTimeAcc / (float)FramesToSumUp));
-		FrameTimeAcc = 0;
-		Count = 0;
-	}
-	else
-	{
-		FrameTimeAcc += DeltaTime;
-		Count++;
-	}
+	static int StartingUp = 1;
+    
+    if(StartingUp)
+    {
+        Count++;
+        if(Count > 100)
+        {
+            StartingUp = 0;
+            Count = 0;
+        }
+    }
+    else
+    {
+        int FramesToSumUp = 1000;
+        if(Count == FramesToSumUp)
+        {
+            printf("%f ms, %f fps\n", (FrameTimeAcc/(float)FramesToSumUp), 1.0f / (FrameTimeAcc / (float)FramesToSumUp));
+            FrameTimeAcc = 0;
+            Count = 0;
+        }
+        else
+        {
+            FrameTimeAcc += DeltaTime;
+            Count++;
+        }
+    }
 }
 
 void ToProperLayout(uint8_t *depth_map, size_t depth_map_size, size_t single_image_size, int width, int height, uint8_t *scratch_memory)
