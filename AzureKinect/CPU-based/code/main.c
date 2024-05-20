@@ -388,19 +388,32 @@ static void PrintFPS(float DeltaTime)
 {
 	static int Count = 0;
 	static float FrameTimeAcc = 0;
-	
-	int FramesToSumUp = 100;
-	if(Count == FramesToSumUp) 
-	{
-		printf("FPS: %f\n", 1.0f / (FrameTimeAcc / (float)FramesToSumUp));
-		FrameTimeAcc = 0;
-		Count = 0;
-	}
-	else
-	{
-		FrameTimeAcc += DeltaTime;
-		Count++;
-	}
+	static int StartingUp = 1;
+    
+    if(StartingUp)
+    {
+        Count++;
+        if(Count > 100)
+        {
+            StartingUp = 0;
+            Count = 0;
+        }
+    }
+    else
+    {
+        int FramesToSumUp = 1000;
+        if(Count == FramesToSumUp)
+        {
+            printf("%f ms, %f fps\n", (FrameTimeAcc/(float)FramesToSumUp), 1.0f / (FrameTimeAcc / (float)FramesToSumUp));
+            FrameTimeAcc = 0;
+            Count = 0;
+        }
+        else
+        {
+            FrameTimeAcc += DeltaTime;
+            Count++;
+        }
+    }
 }
 
 static void calculate_point_cloud(color_point *VertexArray, uint32_t *VertexCount, v2f *xy_map, uint16_t *depth_map, int depth_map_count)

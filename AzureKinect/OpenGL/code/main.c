@@ -114,6 +114,38 @@ void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "Error: %s\n", description);
 }
 
+static void PrintFPS(float DeltaTime)
+{
+	static int Count = 0;
+	static float FrameTimeAcc = 0;
+	static int StartingUp = 1;
+    
+    if(StartingUp)
+    {
+        Count++;
+        if(Count > 100)
+        {
+            StartingUp = 0;
+            Count = 0;
+        }
+    }
+    else
+    {
+        int FramesToSumUp = 1000;
+        if(Count == FramesToSumUp)
+        {
+            printf("%f ms, %f fps\n", (FrameTimeAcc/(float)FramesToSumUp), 1.0f / (FrameTimeAcc / (float)FramesToSumUp));
+            FrameTimeAcc = 0;
+            Count = 0;
+        }
+        else
+        {
+            FrameTimeAcc += DeltaTime;
+            Count++;
+        }
+    }
+}
+
 int main(void)
 {    
     if(glfwInit())
@@ -201,7 +233,7 @@ int main(void)
                     
                     double frame_time_end = glfwGetTime();
                     delta_time = (float)(frame_time_end - frame_time_start);
-                    //printf("%.1f FPS\n", 1.0 / delta_time);
+                    PrintFPS(delta_time);
                 }
                 
                 // Calling this increases the closing time noticeably...
