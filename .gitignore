@@ -1,5 +1,7 @@
 build
 
+*.rdbg
+
 # Prerequisites
 *.d
 
