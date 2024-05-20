@@ -3,12 +3,15 @@
 #include <cstdlib>
 #include <cstdint>
 #include <chrono>
+#include <algorithm>
 
 #include <boost/thread/thread.hpp>
 #include <pcl/common/common_headers.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
 #include "k4a.c"
+
+#define clamp(x, low, high) std::max(low, std::min(high, x))
 
 typedef struct
 {
@@ -98,8 +101,6 @@ static void calculate_point_cloud(point *PointCloud, uint32_t *PointCount, v2f *
             // interpolate
             float min_z = 0.5f;
             float max_z = 3.86f;
-
-#define clamp(x, low, high) (x) < (low) ? (low) : ((x) > (high) ? (high) : (x))
             
             float hue = (-Point.Position.Z - min_z) / (max_z - min_z);
             hue = clamp(hue, 0.0f, 1.0f);
@@ -174,9 +175,6 @@ int main(void)
         size_t DepthMapSize = DepthMapCount * sizeof(uint16_t);
         uint16_t *DepthMap = (uint16_t *)malloc(DepthMapSize);
 
-        point *PointCloud = (point *)malloc(DepthMapCount * sizeof(point));
-        uint32_t PointCount;
-
         boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
         viewer->addPointCloud<pcl::PointXYZRGB>(cloud_ptr, "sample cloud");
@@ -192,29 +190,50 @@ int main(void)
             std::chrono::steady_clock::time_point Begin = std::chrono::steady_clock::now();
 
             camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
-            calculate_point_cloud(PointCloud, &PointCount, XYMap, DepthMap, DepthMapCount);
 
-            // display using pcl
             cloud_ptr->points.clear();
-
-            for (size_t i = 0; i < PointCount; ++i) 
+            
+            uint32_t InsertIndex = 0;
+            for(size_t i = 0; i < DepthMapCount; ++i)
             {
+                float d = (float)DepthMap[i];
+                
                 pcl::PointXYZRGB Point;
-                Point.x = PointCloud[i].Position.X;
-                Point.y = PointCloud[i].Position.Y;
-                Point.z = PointCloud[i].Position.Z;
-                Point.r = PointCloud[i].Color.R * 255;
-                Point.g = PointCloud[i].Color.G * 255;
-                Point.b = PointCloud[i].Color.B * 255;
-                cloud_ptr->points.push_back(Point);
+                Point.x = XYMap[i].x * d / 1000.0f;
+                Point.y = -XYMap[i].y * d / 1000.0f;
+                Point.z = -d / 1000.0f;
+                
+                if(Point.z != 0.0f)
+                {
+                    // interpolate
+                    float min_z = 0.5f;
+                    float max_z = 3.86f;
+                    
+                    float hue = (-Point.z - min_z) / (max_z - min_z);
+                    hue = clamp(hue, 0.0f, 1.0f);
+
+                    // the hue of the hsv color goes from red to red so we want to scale with 2/3 which is blue
+                    float range = 2.0f / 3.0f;
+                    
+                    hue *= range;
+                    hue = range - hue;
+
+                    v3f RGB = HSV2RGB({ hue, 1.0f, 1.0f });
+
+                    Point.r = RGB.x * 255;
+                    Point.g = RGB.y * 255;
+                    Point.b = RGB.z * 255;
+
+                    cloud_ptr->points.push_back(Point);
+                }
             }
 
             cloud_ptr->width = (int)cloud_ptr->points.size();
             cloud_ptr->height = 1;
 
+            // display using pcl
             viewer->updatePointCloud(cloud_ptr, "sample cloud");
-
-            viewer->spinOnce(100);
+            viewer->spinOnce(0);
 
             std::chrono::steady_clock::time_point End = std::chrono::steady_clock::now();
             DeltaTime = std::chrono::duration_cast<std::chrono::microseconds>(End - Begin).count() / 1000000.0;
