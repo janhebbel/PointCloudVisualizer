@@ -5,7 +5,6 @@
 #include <chrono>
 #include <algorithm>
 
-#include <boost/thread/thread.hpp>
 #include <pcl/common/common_headers.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
