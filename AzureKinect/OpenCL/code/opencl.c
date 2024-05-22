@@ -449,7 +449,7 @@ PlatformFound:
             DepthMapImageDescriptor.image_width = DepthMapWidth;
             DepthMapImageDescriptor.image_height = DepthMapHeight;
             
-            cl_image_format DepthMapImageFormat = { CL_R, CL_UNSIGNED_INT16 }; // TODO: maybe this fixes the debug release bug
+            cl_image_format DepthMapImageFormat = { CL_R, CL_UNSIGNED_INT16 };
             
             OpenCL->DepthMapImage = clCreateImage(OpenCL->Context, CL_MEM_READ_WRITE, &DepthMapImageFormat, &DepthMapImageDescriptor, NULL, &Result);
             assert(Result == CL_SUCCESS);
@@ -493,7 +493,6 @@ PlatformFound:
     return(OpenCL);
 }
 
-// TODO
 void OpenCLRelease(open_cl *OpenCL)
 {
     clReleaseKernel(OpenCL->PointCloudComputeKernel);
@@ -542,7 +541,7 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     assert(Result == CL_SUCCESS);
     
     size_t GlobalWorkSize[] = { DepthMapWidth, DepthMapHeight };
-    size_t *LocalWorkSize = NULL; // TODO: Query the CL_KERNEL_WORK_GROUP_SIZE and CL_DEVICE_MAX_WORK_ITEM_SIZES or leave it NULL in the call
+    size_t *LocalWorkSize = NULL;
     
     cl_event ComputedPointCloud;
     Result = clEnqueueNDRangeKernel(

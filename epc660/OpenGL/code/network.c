@@ -74,8 +74,9 @@ int Connect(connection *Connection)
 			Status = bind(Socket, (SOCKADDR *)&Service, sizeof(Service));
 			if(Status == SOCKET_ERROR)
             {
-                fprintf(stderr, "Error: %d\n", WSAGetLastError());
+                fprintf(stderr, "An error occurred when binding the socket. Did you change your network settings as per the GitHub README instructions? Error code: %d\n", WSAGetLastError());
                 assert(0);
+                return(-3);
             }
 			
 			Status = listen(Socket, 1);
@@ -140,9 +141,8 @@ void GetDepthImage(SOCKET ClientSocket, uint8_t *Buffer, size_t BufferSize, int 
             uint8_t CaptureMode = ImageDataInformation[2] >> 4;
             uint8_t QuadCount = CaptureMode;
             uint8_t QuadCounter = (ImageDataInformation[7] >> 4);
-            printf("Image Count = %d\n", QuadCounter);
             uint8_t MagicByte = ImageDataInformation[3];
-            assert(MagicByte == 0x4a); // TODO: react to this
+            assert(MagicByte == 0x4a);
             
             if(CaptureMode >= 8)
             {

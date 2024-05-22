@@ -155,7 +155,6 @@ void ToProperLayout(uint8_t *depth_map, size_t depth_map_size, size_t single_ima
 
     size_t row_size = width * sizeof(int);
 
-    // TODO: if quadcount == 4?
     int k = 0;
     for(int i = 0; i < 4; ++i)
     {
@@ -218,7 +217,6 @@ int main(void)
             int Connected = Connect(&Connection);
             if(0 == Connected)
             {
-                //TODO
                 printf("Connected!\n");
 
                 uint32_t depth_map_width = 320;

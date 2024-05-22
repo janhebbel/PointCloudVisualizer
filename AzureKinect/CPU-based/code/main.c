@@ -477,7 +477,6 @@ static bool ClipCondition(v4f P)
 	return(!(X && Y && Z));
 }
 
-// TODO: Struct that holds all values missing and maybe the mvp: find a fitting abstraction 
 static void ProcessVertices(color_point *VertexArray, uint32_t VertexCount, graphics_pipeline *Pipeline, framebuffer *Framebuffer, depth_buffer *DepthBuffer, mat4 MVP)
 {
 	for(uint32_t Index = 0; Index < VertexCount; ++Index)
@@ -520,7 +519,6 @@ static void ProcessVertices(color_point *VertexArray, uint32_t VertexCount, grap
 		};
 		
 		// Per Pixel Operations
-		// TODO: Point Size (for(uint32_t I = 0; I < PointSize; ++I) ...)
 		v3f Color = Pipeline->PixelProgram(VertexOut.Color);
 		
 		uint32_t Alpha = 0xFF;
@@ -680,9 +678,7 @@ int main(void)
                     .sensitivity = 0.0003f
                 };
                 view_control *Control = &Control_;
-				
-				float PointSize = 1.0f;
-				
+								
 				size_t DepthMapSize = DepthMapCount * sizeof(uint16_t);
                 uint16_t *DepthMap = (uint16_t *)VirtualAlloc(NULL, DepthMapSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 				

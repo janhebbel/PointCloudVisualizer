@@ -11,11 +11,11 @@ echo Building...
 echo:
 
 echo Debug
-cl %compile_flags% /MT /Od /Z7 /DDEBUG /DUNICODE /Fe"debug" %files% /link %linker_flags%
+cl %compile_flags% /MT /Od /Z7 /DDEBUG /D_DEBUG /DUNICODE /Fe"debug" %files% /link %linker_flags%
 
 echo:
 
 echo Release
-cl %compile_flags% /MT /O2 /DRELEASE /DUNICODE /Fe"release" %files% /link %linker_flags%
+cl %compile_flags% /MT /O2 /DRELEASE /DNDEBUG /DUNICODE /Fe"release" %files% /link %linker_flags%
 
 popd

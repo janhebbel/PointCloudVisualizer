@@ -273,9 +273,7 @@ int main(void)
 					
 					PrintFPS(DeltaTime);
 				}
-				
-				// TODO: Potentially release opencl and opengl structure
-				
+                
 				//OpenCLRelease(OpenCL);
 				
 				//camera_release(Camera);

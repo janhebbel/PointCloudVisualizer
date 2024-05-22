@@ -472,8 +472,8 @@ void calculate_point_cloud(open_gl *opengl, v2f *xy_map, uint16_t *depth_map)
     
     opengl->glUseProgram(opengl->compute_program);
     
-    opengl->glUniform1f(0, 0.5f);  // min depth in mm TODO
-    opengl->glUniform1f(1, 3.86f); // max depth in mm
+    opengl->glUniform1f(0, 0.5f);
+    opengl->glUniform1f(1, 3.86f);
     
     opengl->glDispatchCompute(width, height, 1);
     opengl->glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
