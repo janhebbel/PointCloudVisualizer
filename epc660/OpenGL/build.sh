@@ -1,2 +1,9 @@
-gcc -o build/debug_linux code/main.c -lglfw -lGL -lk4a -lm -lrt -ldl -Wno-incompatible-pointer-types
+#!/bin/bash
 
+mkdir -p build
+pushd build >/dev/null 2>&1
+
+gcc -o debug_linux ../code/main.c -I../third_party -lGL -lm -lrt  -Wno-incompatible-pointer-types
+# -ldl
+
+popd >/dev/null 2>&1
