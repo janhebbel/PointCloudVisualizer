@@ -409,6 +409,7 @@ open_gl *opengl_init(dimensions depth_image_dimensions)
     glGenTextures(1, &opengl->depth_map_texture);
     opengl->glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, opengl->depth_map_texture);
+    opengl->glTexStorage2D(GL_TEXTURE_2D, 1, GL_R16UI, depth_image_dimensions.w, depth_image_dimensions.h);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -417,6 +418,7 @@ open_gl *opengl_init(dimensions depth_image_dimensions)
     glGenTextures(1, &opengl->xy_table_texture);
     opengl->glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, opengl->xy_table_texture);
+    opengl->glTexStorage2D(GL_TEXTURE_2D, 1, GL_RG32F, depth_image_dimensions.w, depth_image_dimensions.h);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -454,12 +456,12 @@ void calculate_point_cloud(open_gl *opengl, v2f *xy_map, uint16_t *depth_map)
 
     opengl->glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, opengl->depth_map_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R16UI, width, height, 0, GL_RED_INTEGER, GL_UNSIGNED_SHORT, depth_map);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RED_INTEGER, GL_UNSIGNED_SHORT, depth_map);
     opengl->glBindImageTexture(0, opengl->depth_map_texture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R16UI);
     
     opengl->glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, opengl->xy_table_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, xy_map);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RG, GL_FLOAT, xy_map);
     opengl->glBindImageTexture(1, opengl->xy_table_texture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F);
     
     opengl->glActiveTexture(GL_TEXTURE2);
