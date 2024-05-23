@@ -11,11 +11,11 @@ echo Building...
 echo:
 
 echo Debug Build
-cl %compile_flags% /MT /Od /Z7 /DDEBUG /D_DEBUG /D_CRT_SECURE_NO_WARNINGS /Fe"debug" %files% /link %linker_flags%
+cl %compile_flags% /MT /Od /Z7 /D "DEBUG" /D "_DEBUG" /D "_CRT_SECURE_NO_WARNINGS" /Fe"debug" %files% /link /debug %linker_flags%
 
 echo:
 
 echo Release Build
-cl %compile_flags% /MT /O2 /DRELEASE /DNDEBUG /D_CRT_SECURE_NO_WARNINGS /Fe"release" %files% /link %linker_flags%
+cl %compile_flags% /MT /O2 /D "RELEASE" /D "NDEBUG" /D "_CRT_SECURE_NO_WARNINGS" /Fe"release" %files% /link %linker_flags%
 
 popd
