@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <stdio.h>
+#include <memory.h>
 
 #include <GLFW/glfw3.h>
 
@@ -279,14 +280,14 @@ int main(void)
                     glfwGetFramebufferSize(window, (int *)&render_dimensions.w, (int *)&render_dimensions.h);
 
                     // Here we are waiting for the producer thread to signal that the Buffer is full. We time out at 5ms which is ~200 Hz.
-                    DWORD Result = WaitForSingleObject(EventBufferFull, 5); // 5 ms
-                    if(Result == WAIT_OBJECT_0) // WAIT_OBJECT_0 == EventBufferFull was signaled
+                    if(WaitForOtherThread(5))
                     {
                         // ToProperLayout() lays the depth data out in 4 consecutive images. Here we use the extra memory we allocated earlier.
                         ToProperLayout(depth_map, depth_map_size, depth_image_size, depth_map_width, depth_map_height, scratch_memory);
                         calculate_point_cloud(opengl, depth_map, depth_image_size);
+                        
                         // Signal that the buffer was read so that the producer thread can start filling in the depth buffer.
-                        SetEvent(EventBufferRead);
+                        SignalOtherThread();
                     }
 
                     // Using OpenGL to draw to the screen.
@@ -302,6 +303,8 @@ int main(void)
                 }
 
                 free(scratch_memory);
+
+                TerminateMyThread();
 
                 // I'm intentionally not freeing things religiously since they will get cleaned up by the operating system.
                 // And it would just slow down the closing process for no reason.
