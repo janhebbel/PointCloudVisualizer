@@ -345,7 +345,7 @@ int main(void)
 			{
 				fprintf(stderr, "Could not establish a connection.\n");
 				ExitCode = -3;
-			}	
+			}
 			
 			glfwDestroyWindow(Window);
 		}
