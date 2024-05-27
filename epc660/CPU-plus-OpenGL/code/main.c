@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS // REMOVE
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -8,7 +7,6 @@
 
 #include "opengl_renderer.c"
 #include "network.c"
-#include "testing.c" // REMOVE
 
 #include "linalg.h"
 #include "opengl_renderer.h"
@@ -273,10 +271,8 @@ int main(void)
             };
 
             // This will create a socket, bind it, listen and accept when a connection comes in.
-            #if 0
             int Connected = Connect(&Connection);
             if(0 == Connected)
-            #endif
             {
                 uint32_t depth_map_width = 320;
                 uint32_t depth_map_height = 240;
@@ -299,11 +295,6 @@ int main(void)
                     exit(-1);
                 }
 
-// REMOVE
-                ReadDepthDataFromFile("depth_data", depth_map, depth_map_size);
-                to_proper_layout(depth_map, depth_map_size, depth_image_size, depth_map_width, depth_map_height, scratch_memory);
-//
-
                 // This all relevant data the thread functions needs. (Kinda like normal function parameters.)
                 get_depth_image_data ThreadDataIn = 
                 {
@@ -314,9 +305,7 @@ int main(void)
                 };
 
                 // Starts a producer thread that gets the data from the ToF-camera and puts it into depth_map.
-                #if 0 
                 CreateMyThread(&ThreadDataIn);
-                #endif
                 
                 depth_image_dimension dim = { depth_map_width, depth_map_height };
                 open_gl *opengl = opengl_init(&dim);
@@ -344,8 +333,7 @@ int main(void)
                     glfwGetFramebufferSize(window, (int *)&render_dim.x, (int *)&render_dim.y);
                     
                     opengl_frame *frame = opengl_begin_frame(opengl, render_dim);
-                    
-#if 0                    
+                                       
                     // Here we are waiting for the producer thread to signal that the Buffer is full. We time out at 5ms which is ~200 Hz.
                     if(WaitForOtherThread(5))
                     {
@@ -356,9 +344,6 @@ int main(void)
                         // Signal that the buffer was read so that the producer thread can start filling in the depth buffer.
                         SignalOtherThread();
                     }
-#else
-                    calculate_point_cloud(frame, (int *)depth_map, depth_map_width, depth_map_height);
-#endif
                     
                     opengl_end_frame(opengl, frame, control);
                     
@@ -370,21 +355,17 @@ int main(void)
                     PrintFPS(delta_time);
                 }
 
-#if 0
                 free(scratch_memory);
                 free(depth_map);
 
                 TerminateMyThread();
 
                 Disconnect(Connection.Host);
-#endif
             }
-#if 0
             else
             {
                 fprintf(stderr, "Could not establish a connection.\n");
             }
-#endif
             
             glfwDestroyWindow(window);
         }
