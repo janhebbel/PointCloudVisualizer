@@ -92,23 +92,23 @@ void BuildPointCloudComputeProgram(open_cl *OpenCL)
     "    int2 principal_point = { width / 2, height / 2 };                               \n"
     "                                                                                    \n"
     "    int2 pixel = { get_global_id(0), get_global_id(1) };                            \n"
-    "    int2 pixel1 = Pixel + (int2){ width, 0 };                                       \n"
-    "    int2 pixel2 = Pixel + (int2){ 0, height };                                      \n"
-    "    int2 pixel3 = Pixel + (int2){ width, height };                                  \n"
+    "    int2 pixel1 = pixel + (int2){ width, 0 };                                       \n"
+    "    int2 pixel2 = pixel + (int2){ 0, height };                                      \n"
+    "    int2 pixel3 = pixel + (int2){ width, height };                                  \n"
     "                                                                                    \n"
     "    int depth0 = (read_imagei(DepthImage, pixel).x & 0xFFF) - 2048;                 \n"
     "    int depth1 = (read_imagei(DepthImage, pixel1).x & 0xFFF) - 2048;                \n"
     "    int depth2 = (read_imagei(DepthImage, pixel2).x & 0xFFF) - 2048;                \n"
     "    int depth3 = (read_imagei(DepthImage, pixel3).x & 0xFFF) - 2048;                \n"
     "                                                                                    \n"
-    "    float y = (float)(depth3 - depth1);                                             \n"
-    "    float x = (float)(depth2 - depth0);                                             \n"
+    "    float diff0 = (float)(depth3 - depth1);                                         \n"
+    "    float diff1 = (float)(depth2 - depth0);                                         \n"
     "                                                                                    \n"
     "    float c = 300000000.0;                                                          \n"
     "    float f = 12000000.0;                                                           \n"
     "    float pi = 3.1416; // 3.1415926535897932384626433832795                         \n"
     "                                                                                    \n"
-    "    float depth = (c / 2) * (1 / (2 * pi * f)) * (pi + atan(y, x));                 \n"
+    "    float depth = (c / 2) * (1 / (2 * pi * f)) * (pi + atan2(diff0, diff1));         \n"
     "                                                                                    \n"
     "    float focal_length = pixels_per_mm * focal_length_mm;                           \n"
     "                                                                                    \n"
@@ -131,8 +131,8 @@ void BuildPointCloudComputeProgram(open_cl *OpenCL)
     "                                                                                    \n"
     "    float3 Color = HSVToRGB((float3){ Hue, 1.0f, 1.0f });                           \n"
     "                                                                                    \n"
-    "    write_imagef(PositionImage, Pixel, (float4){ Position, w });                    \n"
-    "    write_imagef(ColorImage, Pixel, (float4){ Color, w });                          \n"
+    "    write_imagef(PositionImage, pixel, (float4){ Position, w });                    \n"
+    "    write_imagef(ColorImage, pixel, (float4){ Color, w });                          \n"
     "}                                                                                   \n";
     
     cl_int Result;
@@ -524,6 +524,8 @@ void OpenCLRenderToTexture(open_cl *OpenCL, int *DepthMap, uint32_t DepthMapWidt
     size_t Origin[] = { 0, 0, 0 };
     size_t DepthMapRegion[] = { DepthMapWidth, DepthMapHeight, 1 };
     
+    uint32_t single_depth_image_size = DepthMapWidth * DepthMapHeight;
+
     cl_event depth_image_written[4];
 
     // Writing the depth map data to the opencl image.
@@ -533,7 +535,7 @@ void OpenCLRenderToTexture(open_cl *OpenCL, int *DepthMap, uint32_t DepthMapWidt
         CL_FALSE, 
         Origin, DepthMapRegion, 
         DepthMapWidth * sizeof(DepthMap[0]), 0, 
-        DepthMap, 
+        DepthMap + 0 * single_depth_image_size, 
         0, NULL, &depth_image_written[0]);
     assert(Result == CL_SUCCESS);
 
@@ -546,7 +548,7 @@ void OpenCLRenderToTexture(open_cl *OpenCL, int *DepthMap, uint32_t DepthMapWidt
         CL_FALSE, 
         Origin, DepthMapRegion, 
         DepthMapWidth * sizeof(DepthMap[0]), 0, 
-        DepthMap, 
+        DepthMap + 1 * single_depth_image_size, 
         0, NULL, &depth_image_written[1]);
     assert(Result == CL_SUCCESS);
 
@@ -559,7 +561,7 @@ void OpenCLRenderToTexture(open_cl *OpenCL, int *DepthMap, uint32_t DepthMapWidt
         CL_FALSE, 
         Origin, DepthMapRegion, 
         DepthMapWidth * sizeof(DepthMap[0]), 0, 
-        DepthMap, 
+        DepthMap + 2 * single_depth_image_size, 
         0, NULL, &depth_image_written[2]);
     assert(Result == CL_SUCCESS);
 
@@ -572,7 +574,7 @@ void OpenCLRenderToTexture(open_cl *OpenCL, int *DepthMap, uint32_t DepthMapWidt
         CL_FALSE, 
         Origin, DepthMapRegion, 
         DepthMapWidth * sizeof(DepthMap[0]), 0, 
-        DepthMap, 
+        DepthMap + 3 * single_depth_image_size, 
         0, NULL, &depth_image_written[3]);
     assert(Result == CL_SUCCESS);
     
@@ -584,12 +586,12 @@ void OpenCLRenderToTexture(open_cl *OpenCL, int *DepthMap, uint32_t DepthMapWidt
     // Set Kernel Arguments and Enqueue the Kernel in the command queue.
     Result = 0;
     Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 0, sizeof(cl_mem), &OpenCL->DepthMapImage);
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 2, sizeof(cl_mem), &OpenCL->PositionImage);
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 3, sizeof(cl_mem), &OpenCL->ColorImage);
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 4, sizeof(float), &min_depth);
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 5, sizeof(float), &max_depth);
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 6, sizeof(float), &pixels_per_mm);
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 7, sizeof(float), &focal_length_mm);
+    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 1, sizeof(cl_mem), &OpenCL->PositionImage);
+    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 2, sizeof(cl_mem), &OpenCL->ColorImage);
+    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 3, sizeof(float), &min_depth);
+    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 4, sizeof(float), &max_depth);
+    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 5, sizeof(float), &pixels_per_mm);
+    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 6, sizeof(float), &focal_length_mm);
     assert(Result == CL_SUCCESS);
     
     size_t GlobalWorkSize[] = { DepthMapWidth, DepthMapHeight };
