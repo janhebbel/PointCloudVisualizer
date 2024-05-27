@@ -77,7 +77,7 @@ get_depth_image_data *ThreadData;
 
 int Connect(connection *Connection)
 {
-    int Status = 0;	
+    int status = 0;	
     int Domain = AF_INET;
     int Protocol;
 
@@ -88,8 +88,8 @@ int Connect(connection *Connection)
 	WSADATA WSAData;
 	WORD Version = MAKEWORD(2, 2);
 	
-	Status = WSAStartup(Version, &WSAData);
-	if(Status != 0)
+	status = WSAStartup(Version, &WSAData);
+	if(status != 0)
     {
         fprintf(stderr, "WSAStartup failed.\n");
         return(-1);
@@ -109,23 +109,23 @@ int Connect(connection *Connection)
 
         // 192.168.10.1			
         my_in_addr_t InAddr;
-        Status = inet_pton(Domain, "192.168.10.1", &InAddr);
-        assert(Status == 1);
+        status = inet_pton(Domain, "192.168.10.1", &InAddr);
+        assert(status == 1);
                     
         sockaddr_in_t Service = {0};
         Service.sin_family = (short)Domain;
         Service.sin_addr = InAddr;
         Service.sin_port = htons(10002);
         
-        Status = bind(Socket, (sockaddr_t *)&Service, sizeof(Service));
-        if(0 != Status)
+        status = bind(Socket, (sockaddr_t *)&Service, sizeof(Service));
+        if(0 != status)
         {
             fprintf(stderr, "Failed to bind the socket. Error: %d\n", get_last_error());
             return(-3);
         }
         
-        Status = listen(Socket, 1);
-        if(0 != Status)
+        status = listen(Socket, 1);
+        if(0 != status)
         {
             fprintf(stderr, "'listen()' failed. Error: %d\n", get_last_error());
             return(-4);
@@ -151,15 +151,15 @@ int Connect(connection *Connection)
 
 void Disconnect(socket_t Socket)
 {
-    int Status;
+    int status;
 
-    Status = close_socket(Socket);
-    assert(Status == 0);
+    status = close_socket(Socket);
+    assert(status == 0);
 
 #if defined(_WIN32)
 
-    Status = WSACleanup();
-    assert(Status == 0);
+    status = WSACleanup();
+    assert(status == 0);
     
 #endif
 }

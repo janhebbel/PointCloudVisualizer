@@ -4,19 +4,26 @@
 #include <stddef.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
+
+#if defined(_WIN32)
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <strsafe.h>
 
-#if defined(_WIN32)
 	#define GLFW_EXPOSE_NATIVE_WIN32
 	#define GLFW_EXPOSE_NATIVE_WGL
+
 #elif defined(__linux__)
+
 	#define GLFW_EXPOSE_NATIVE_X11
 	#define GLFW_EXPOSE_NATIVE_GLX
+
 #else
+
 	#error Using unsupported operating system.
+
 #endif
 
 #include <GLFW/glfw3.h>
