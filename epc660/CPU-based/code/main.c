@@ -9,8 +9,6 @@
 #include "network.c"
 #include "linalg.h"
 
-#include "testing.c"
-
 #include <windows.h>
 
 typedef struct 
@@ -695,11 +693,9 @@ int main(void)
                 INVALID_SOCKET
             };
 
-#if 0
             // This will create a socket, bind it, listen and accept when a connection comes in.
             int Connected = Connect(&Connection);
             if(0 == Connected)
-#endif
             {
                 uint32_t depth_map_width = 320;
                 uint32_t depth_map_height = 240;
@@ -713,14 +709,9 @@ int main(void)
                     fprintf(stderr, "Not enough memory available to run this process.\n");
                     exit(-1);
                 }
-
-#if 1
-                ReadDepthDataFromFile("depth_data", depth_map, depth_map_size);
-#endif
                 
                 // Allocate memory to temporarily operate in when laying out memory properly.
                 uint8_t *scratch_memory = (uint8_t *)malloc(depth_map_size);
-                to_proper_layout(depth_map, depth_map_size, depth_image_size, depth_map_width, depth_map_height, scratch_memory);
 
                 // This all relevant data the thread functions needs. (Kinda like normal function parameters.)
                 get_depth_image_data ThreadDataIn = 
@@ -732,7 +723,7 @@ int main(void)
                 };
 
                 // Starts a "producer" thread that gets the data from the ToF-camera and puts it into depth_map.
-                //CreateMyThread(&ThreadDataIn);
+                CreateMyThread(&ThreadDataIn);
 
                 framebuffer  *Framebuffer = CreateFramebuffer(1280, 720, 4);
                 depth_buffer *DepthBuffer = CreateDepthBuffer(1280, 720);
@@ -771,19 +762,15 @@ int main(void)
                     GetClientRect(Window, &ClientRect);
                     dimensions RenderDimensions = {(uint32_t)ClientRect.right, (uint32_t)ClientRect.bottom};
                     
-#if 0
                     // Here we are waiting for the producer thread to signal that the Buffer is full. We time out at 5ms which is ~200 Hz.
                     if(WaitForOtherThread(5))
-#endif
                     {
                         // to_proper_layout() lays the depth data out in 4 consecutive images. Here we use the extra memory we allocated earlier.
-                        //to_proper_layout(depth_map, depth_map_size, depth_image_size, depth_map_width, depth_map_height, scratch_memory);
+                        to_proper_layout(depth_map, depth_map_size, depth_image_size, depth_map_width, depth_map_height, scratch_memory);
                         calculate_point_cloud(VertexArray, &VertexCount, (int *)depth_map, depth_map_width, depth_map_height);
                         
-#if 0
                         // Signal that the buffer was read so that the producer thread can start filling in the depth buffer.
                         SignalOtherThread();
-#endif
                     }
 
                     ClearFramebuffer(Framebuffer, 0.0f, 0.0f, 0.0f, 1.0f);
@@ -805,16 +792,14 @@ int main(void)
 
                 free(scratch_memory);
 
-                //TerminateMyThread();
+                TerminateMyThread();
 
-                //Disconnect(Connection.Host);
+                Disconnect(Connection.Host);
             }
-#if 0
             else
             {
-                fprintf(stderr, "Could not initialize camera.\n");
+                fprintf(stderr, "Could not establish a connection.\n");
             }
-#endif
         }
         else
         {
