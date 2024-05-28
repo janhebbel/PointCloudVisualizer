@@ -21,8 +21,8 @@ call build.bat
 echo:
 
 echo PCL
-cd ..\PCL\build
-call msbuild PCL.sln
+cd ..\PCL
+call build.bat
 echo:
 
-cd ..\..
+cd ..

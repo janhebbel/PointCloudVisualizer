@@ -83,46 +83,6 @@ v3f HSV2RGB(v3f HSV)
 	return(RGB);
 }
 
-static void calculate_point_cloud(point *PointCloud, uint32_t *PointCount, v2f *XYMap, uint16_t *DepthMap, int DepthMapCount)
-{
-    uint32_t InsertIndex = 0;
-    for(size_t i = 0; i < DepthMapCount; ++i)
-    {
-        float d = (float)DepthMap[i];
-        
-        point Point;
-        Point.Position.X = XYMap[i].x * d / 1000.0f;
-        Point.Position.Y = -XYMap[i].y * d / 1000.0f;
-        Point.Position.Z = -d / 1000.0f;
-        
-        if(Point.Position.Z != 0.0f)
-        {
-            // interpolate
-            float min_z = 0.5f;
-            float max_z = 3.86f;
-            
-            float hue = (-Point.Position.Z - min_z) / (max_z - min_z);
-            hue = clamp(hue, 0.0f, 1.0f);
-
-            // the hue of the hsv color goes from red to red so we want to scale with 2/3 which is blue
-            float range = 2.0f / 3.0f;
-            
-            hue *= range;
-            hue = range - hue;
-
-            v3f RGB = HSV2RGB({ hue, 1.0f, 1.0f });
-
-            Point.Color.R = RGB.x;
-            Point.Color.G = RGB.y;
-            Point.Color.B = RGB.z;
-
-            PointCloud[InsertIndex++] = Point;
-        }
-    }
-
-    *PointCount = InsertIndex;
-}
-
 static void PrintFPS(float DeltaTime)
 {
 	static int Count = 0;
@@ -211,9 +171,9 @@ int main(void)
                 float d = (float)DepthMap[i];
                 
                 pcl::PointXYZRGB Point;
-                Point.x = XYMap[i].x * d / 1000.0f;
+                Point.x = -XYMap[i].x * d / 1000.0f;
                 Point.y = -XYMap[i].y * d / 1000.0f;
-                Point.z = -d / 1000.0f;
+                Point.z = d / 1000.0f;
                 
                 if(Point.z != 0.0f)
                 {
@@ -221,7 +181,7 @@ int main(void)
                     float min_z = 0.5f;
                     float max_z = 3.86f;
                     
-                    float hue = (-Point.z - min_z) / (max_z - min_z);
+                    float hue = (Point.z - min_z) / (max_z - min_z);
                     hue = clamp(hue, 0.0f, 1.0f);
 
                     // the hue of the hsv color goes from red to red so we want to scale with 2/3 which is blue
