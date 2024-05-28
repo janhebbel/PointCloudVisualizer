@@ -1,5 +1,6 @@
-#include <CL/cl.h>
-#include <CL/cl_icd.h>
+#include <CL/opencl.h>
+
+typedef cl_int (*clGetGLContextInfoKHR_fn)(const cl_context_properties* properties, cl_gl_context_info param_name, size_t param_value_size, void* param_value, size_t* param_value_size_ret);
 
 #include "limits.h"
 
