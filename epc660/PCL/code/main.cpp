@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -11,7 +10,6 @@
 #include <pcl/visualization/pcl_visualizer.h>
 
 #include "network.c"
-#include "testing.c"
 
 #define clamp(x, low, high) std::max(low, std::min(high, x))
 
@@ -201,11 +199,9 @@ int main(void)
         INVALID_SOCKET
     };
 
-    /*
     // This will create a socket, bind it, listen and accept when a connection comes in.
     int Connected = Connect(&Connection);
     if(0 == Connected)
-    */
     {
         int depth_map_width = 320;
         int depth_map_height = 240;
@@ -228,9 +224,6 @@ int main(void)
             exit(-1);
         }
 
-        ReadDepthDataFromFile("depth_data", depth_map, depth_map_size);
-        to_proper_layout(depth_map, depth_map_size, depth_image_size, depth_map_width, depth_map_height, scratch_memory);
-
         // This all relevant data the thread functions needs. (Kinda like normal function parameters.)
         get_depth_image_data ThreadDataIn = 
         {
@@ -241,7 +234,7 @@ int main(void)
         };
 
         // Starts a producer thread that gets the data from the ToF-camera and puts it into depth_map.
-        //CreateMyThread(&ThreadDataIn);
+        CreateMyThread(&ThreadDataIn);
 
         boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -260,10 +253,10 @@ int main(void)
             std::chrono::steady_clock::time_point Begin = std::chrono::steady_clock::now();
 
             // Here we are waiting for the producer thread to signal that the Buffer is full. We time out at 5ms which is ~200 Hz.
-            //if(WaitForOtherThread(5))
+            if(WaitForOtherThread(5))
             {
                 // to_proper_layout() lays the depth data out in 4 consecutive images. Here we use the extra memory we allocated earlier.
-                //to_proper_layout(depth_map, depth_map_size, depth_image_size, depth_map_width, depth_map_height, scratch_memory);
+                to_proper_layout(depth_map, depth_map_size, depth_image_size, depth_map_width, depth_map_height, scratch_memory);
 
                 // fill PCL point cloud with new data
                 cloud_ptr->points.clear();
@@ -331,7 +324,7 @@ int main(void)
                 cloud_ptr->height = 1;
                 
                 // Signal that the buffer was read so that the producer thread can start filling in the depth buffer.
-                //SignalOtherThread();
+                SignalOtherThread();
             }
 
             // display using pcl
@@ -342,22 +335,20 @@ int main(void)
             DeltaTime = std::chrono::duration_cast<std::chrono::microseconds>(End - Begin).count() / 1000000.0;
             PrintFPS(DeltaTime);
         }
-        /*
+        
         free(scratch_memory);
         free(depth_map);
 
         TerminateMyThread();
 
         Disconnect(Connection.Host);
-        */
+        
     }
-    /*
     else
     {
         fprintf(stderr, "Failed to establish a connection.\n");
         return(-1);
     }
-    */
 
     return(0);
 }
