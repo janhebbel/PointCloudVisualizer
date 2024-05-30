@@ -356,6 +356,7 @@ void SignalOtherThread(void)
 #if defined(_WIN32)
 
     SetEvent(EventBufferRead);
+    WaitForSingleObject(ProducerThread, INFINITE);
 
 #elif defined(__linux__)
 
