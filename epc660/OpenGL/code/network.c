@@ -75,6 +75,8 @@ get_depth_image_data;
 
 get_depth_image_data *ThreadData;
 
+// Connect() will attempt to create a connection between this application and the camera via the socket(), bind(), listen(), accept()
+// functions.
 int Connect(connection *Connection)
 {
     int Status = 0;	
@@ -164,6 +166,9 @@ void Disconnect(socket_t Socket)
 #endif
 }
 
+// This function is currently not used because it makes the process of reading out the data from the camera
+// unnecassarily hard. But the idea of this function was to get the width, height and the size of the camera 
+// from the delivered meta data to avoid hard coding the width, height and size.
 void GetDepthImageInfo(socket_t ClientSocket, uint32_t *WidthOut, uint32_t *HeightOut, uint32_t *DataSizeOut)
 {
     // Read out the first 4 * 4 bytes meta data
@@ -180,6 +185,8 @@ void GetDepthImageInfo(socket_t ClientSocket, uint32_t *WidthOut, uint32_t *Heig
     if(DataSizeOut) *DataSizeOut = DataSize;
 }
 
+// This is the function that collects the data from the socket via the recv() function until it has 
+// all 4 depth images that are required to calculate the depth from.
 void GetDepthImage(socket_t ClientSocket, uint8_t *Buffer, size_t BufferSize, int ImageSize)
 {
     int BytesReceived = 0;
@@ -232,6 +239,8 @@ void GetDepthImage(socket_t ClientSocket, uint8_t *Buffer, size_t BufferSize, in
     }
 }
 
+// ThreadProc is the function that will be run by the producer thread. It will start collecting the depth data and when 
+// it has all the data it will signal the other thread and then waits until the other thread has processed the data fully.
 #if defined(_WIN32)
 DWORD WINAPI ThreadProc(LPVOID Param)
 {
@@ -283,6 +292,7 @@ void *ThreadProc(void *Param)
 }
 #endif
 
+// This creates the thread and other required things for running this producer consumer thread model.
 void CreateMyThread(get_depth_image_data *ThreadDataIn)
 {
 #if defined(_WIN32)
@@ -309,11 +319,13 @@ void CreateMyThread(get_depth_image_data *ThreadDataIn)
 #endif
 }
 
+// This signals the producer thread that it should stop executing.
 void TerminateMyThread(void)
 {
 #if defined(_WIN32)
 
     SetEvent(EndThread);
+    WaitForSingleObject(ProducerThread, INFINITE);
 
 #elif defined(__linux)
 
@@ -322,6 +334,9 @@ void TerminateMyThread(void)
 #endif
 }
 
+
+// This function waits until the timeout triggers or the producer thread signals that it has the depth data
+// ready for further processing.
 int WaitForOtherThread(int TimeoutInMilliseconds)
 {
 #if defined(_WIN32)
@@ -351,12 +366,13 @@ int WaitForOtherThread(int TimeoutInMilliseconds)
 #endif
 }
 
+// Signals the producer thread that the main thread has read the depth data so it can start collecting 
+// depth data from the camera again.
 void SignalOtherThread(void)
 {
 #if defined(_WIN32)
 
     SetEvent(EventBufferRead);
-    WaitForSingleObject(ProducerThread, INFINITE);
 
 #elif defined(__linux__)
 

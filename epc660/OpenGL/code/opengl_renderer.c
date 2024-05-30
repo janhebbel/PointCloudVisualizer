@@ -507,14 +507,6 @@ void calculate_point_cloud(open_gl *opengl, uint8_t *depth_buffer, size_t single
 
 void render_point_cloud(open_gl *opengl, dimensions render_dimensions, view_control *control, float point_size)
 {
-    // This is how everything using OpenGL works:
-    // In opengl_init I'm creating every resource that I will need later down the line. When calculating the 
-    // point cloud from the depth image I'm using an OpenGL compute shader. Which is basically just a shader
-    // that runs independent from the rendering pipeline. I'm storing the output of that calculation in 2
-    // textures: xyzw_table_texture and rgba_color_texture which store the 3d + w position for every point
-    // in the point cloud and its color which is calculated from the z/depth of the point using HSV.
-    // We use these textures as input when rendering.
-
     // We need to disable the depth test here because 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_PROGRAM_POINT_SIZE);

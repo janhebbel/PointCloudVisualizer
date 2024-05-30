@@ -366,7 +366,7 @@ quat quat_mul(quat a, quat b)
 
 float quat_norm(quat q)
 {
-    // ||q|| = sqrtf(q.s², s.v²);
+    // ||q|| = sqrtf(q.sï¿½, s.vï¿½);
     return(q.s * q.s + v3f_dot(q.v, q.v));
 }
 
@@ -393,7 +393,7 @@ quat quat_conjugate(quat q)
 
 quat quat_inverse(quat q)
 {
-    // q = conjugate(q) / norm(q)²
+    // q = conjugate(q) / norm(q)
     float norm = quat_norm(q);
     float denominator = norm * norm;
     quat conjugate = quat_conjugate(q);
@@ -429,7 +429,6 @@ v3f v3f_rotate_about_axis_quat(v3f p, v3f axis, float turn)
     return(quat_mul(quat_mul(q, (quat){0.f, p}), q_star).v);
 }
 
-// source: https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Quaternion-derived_rotation_matrix
 mat4 mat4_rotate_quat(v3f axis, float turn)
 {
     // NOTE: the axis vector has to be a unit vector

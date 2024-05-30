@@ -150,7 +150,7 @@ static void PrintFPS(float DeltaTime)
     }
 }
 
-void ToProperLayout(uint8_t *depth_map, size_t depth_map_size, size_t single_image_size, int width, int height, uint8_t *scratch_memory)
+void to_proper_layout(uint8_t *depth_map, size_t depth_map_size, size_t single_image_size, int width, int height, uint8_t *scratch_memory)
 {
     memcpy(scratch_memory, depth_map, depth_map_size);
 
@@ -184,6 +184,30 @@ void ToProperLayout(uint8_t *depth_map, size_t depth_map_size, size_t single_ima
         }
     }
 }
+
+/*
+This program works in the following way: We accept the incomming connection from the epc660 camera.
+We then create a producer thread (CreateMyThread()) that runs along this main (consumer) thread 
+that will collect the depth data from the camera. The main thread will then process the depth data. 
+It will first call to_proper_layout() to lay out the memory linearly and then call 
+calculate_point_cloud() to calculate the point cloud from the 4 depth images according to the 
+formula given in the epc660 specification. Finally, the point cloud will be rendered.
+
+This is how everything making use of OpenGL works: 
+point cloud from the depth image I'm using an OpenGL compute shader (a program that runs on the GPU &
+allows general purpose calculations to be done on the GPU). I'm storing the output of that calculation 
+in 2 textures: xyzw_table_texture and rgba_color_texture which store the 3d + w position for every point
+in the point cloud and its color which is calculated from the z/depth of the point using HSV.
+We use these textures as input when rendering. In the vertex shader that is part of the OpenGL rendering
+pipeline we just assign the position to be exactly like the one in the 3d and color textures. For the 
+movement and projection from 3d to 2d space we use a matrix that is commonly referred to as the MVP 
+matrix. MVP stands for model, view and projection. The model matrix transforms local 3d positions to 
+world space positions. Every position we calculated is already in world space so we just use the 4x4
+identity matrix for the model matrix. The view matrix transforms vertices from 3d world space to view
+space (which is just the world as seen from the "camera"). Finally, we use the perspective projection
+matrix to transform the 3d view space to clip space. OpenGL will take this result and do the rest of 
+the transformations until we finally get screen pixel positions.
+*/
 
 int main(void)
 {    
@@ -282,8 +306,8 @@ int main(void)
                     // Here we are waiting for the producer thread to signal that the Buffer is full. We time out at 5ms which is ~200 Hz.
                     if(WaitForOtherThread(5))
                     {
-                        // ToProperLayout() lays the depth data out in 4 consecutive images. Here we use the extra memory we allocated earlier.
-                        ToProperLayout(depth_map, depth_map_size, depth_image_size, depth_map_width, depth_map_height, scratch_memory);
+                        // to_proper_layout() lays the depth data out in 4 consecutive images. Here we use the extra memory we allocated earlier.
+                        to_proper_layout(depth_map, depth_map_size, depth_image_size, depth_map_width, depth_map_height, scratch_memory);
                         calculate_point_cloud(opengl, depth_map, depth_image_size);
                         
                         // Signal that the buffer was read so that the producer thread can start filling in the depth buffer.
@@ -303,6 +327,7 @@ int main(void)
                 }
 
                 free(scratch_memory);
+                free(depth_map);
 
                 TerminateMyThread();
 
