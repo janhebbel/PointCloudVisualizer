@@ -304,12 +304,6 @@ static void compile_compute_program(open_gl *opengl)
                                                                     
                                   float w = 1.0f;
 
-                                  if(value_image0 == 0 || value_image1 == 0 || value_image2 == 0 || value_image3 == 0)
-                                  {
-                                      // Ignore depth values where one value to compute it with was 0.
-                                      w = 0.0f;
-                                  }
-
                                   // Calculating the depth value from 4 images as per the specification.
                                   float y = float(value_image3 - value_image1);
                                   float x = float(value_image2 - value_image0);
