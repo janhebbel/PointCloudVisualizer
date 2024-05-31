@@ -4,6 +4,9 @@ A collection of programs with different approaches but the same function: collec
 ![Screenshot 2024-05-19 173755](https://github.com/jhebbel/PointCloudVisualizer/assets/75396907/b10fffad-d2f4-4445-bbfc-6b7d377412e2)
 ![Screenshot 2024-05-19 173802](https://github.com/jhebbel/PointCloudVisualizer/assets/75396907/663a93ee-d93b-4b9d-8acf-08af31874cfc)
 
+## Comments
+To save some effort and since almost all versions are almost identical I put the bulk of the comments into epc660\OpenGL\ source files.
+
 ## Dependencies
 - Azure Kinect SDK
 - GLFW
