@@ -1,3 +1,0 @@
-/mnt/c/Dev/Bachelor/PointCloudVisualizer/AzureKinect/PCL/build_linux/CMakeFiles/rebuild_cache.dir
-/mnt/c/Dev/Bachelor/PointCloudVisualizer/AzureKinect/PCL/build_linux/CMakeFiles/pcl_version.dir
-/mnt/c/Dev/Bachelor/PointCloudVisualizer/AzureKinect/PCL/build_linux/CMakeFiles/edit_cache.dir
