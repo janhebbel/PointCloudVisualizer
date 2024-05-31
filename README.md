@@ -33,9 +33,11 @@ For both PCL versions:
 After having downloaded everything and putting everything in its proper place. Just call the build.bat for the version that you want to compile. If you want to compile multiple versions at once there are build_all.bat files in every parent directory.
 
 ### Linux
-In general: install the Azure Kinect SDK (only Ubuntu 18.04), download GLFW3, download OpenCL SDK and download the PCL.
+#### In general
+Install the Azure Kinect SDK (only Ubuntu 18.04), download GLFW3, download OpenCL SDK and download the PCL.
 
-For Debian-based distributions:
+#### For Debian-based distributions:
+
 For the Azure Kinect version (only Ubuntu 18.04 supported):
 - Follow the instructions from here: https://learn.microsoft.com/en-us/azure/kinect-dk/sensor-sdk-download#linux-installation-instructions and https://learn.microsoft.com/en-us/linux/packages#debian-based-linux-distributions. Summary below:
 - curl -sSL -O https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb
@@ -56,3 +58,7 @@ For PCL:
 - sudo apt install libpcl-dev
 
 After having downloaded everything and putting everything in its proper place. Just call the build.sh for the version that you want to compile. If you want to compile multiple versions at once there are build_all.sh files in every parent directory.
+
+### Ethernet Settings for the epc660 Version
+To be able to run any of the epc660 applications you will need make some changes to your ethernet settings:
+- Using Windows navigate to your ethernet settings. Once there, edit your IP settings. At the top select Manual, turn IPv4 on. For the IP address enter: 192.168.10.1. For the Subnet prefix length enter 24. For the Gateway enter 192.168.10.0. And for the Preferred DNS enter 8.8.8.8. Press save.
