@@ -384,35 +384,25 @@ static void HandleInput(HWND Window, view_control *Control, float DeltaTime)
     }
 }
 
-static void PrintFPS(float DeltaTime)
+typedef struct s_timer {
+    const int FramesToSumUp;
+    int Count;
+    float Acc;
+} timer;
+
+static void PrintAverageTime(timer *Timer, float DeltaTime)
 {
-	static int Count = 0;
-	static float FrameTimeAcc = 0;
-	static int StartingUp = 1;
-    
-    if(StartingUp)
+    if(Timer->Count == Timer->FramesToSumUp)
     {
-        Count++;
-        if(Count > 100)
-        {
-            StartingUp = 0;
-            Count = 0;
-        }
+        float AvgFrameTime = Timer->Acc / (float)Timer->FramesToSumUp;
+        printf("%f ms\n", AvgFrameTime * 1000.0f);
+        Timer->Acc = 0;
+        Timer->Count = 0;
     }
     else
     {
-        int FramesToSumUp = 1000;
-        if(Count == FramesToSumUp)
-        {
-            printf("%f ms, %f fps\n", (FrameTimeAcc/(float)FramesToSumUp), 1.0f / (FrameTimeAcc / (float)FramesToSumUp));
-            FrameTimeAcc = 0;
-            Count = 0;
-        }
-        else
-        {
-            FrameTimeAcc += DeltaTime;
-            Count++;
-        }
+        Timer->Acc += DeltaTime;
+        Timer->Count++;
     }
 }
 
@@ -686,6 +676,10 @@ int main(void)
 				uint32_t VertexCount = 0;
 				
 				float DeltaTime = 0.0f;
+                
+                timer PointCloudComputeTimer = {.FramesToSumUp = 1000};
+                timer RenderTimer = {.FramesToSumUp = 1000};
+                timer FrameTimer = {.FramesToSumUp = 1000};
 
 				ShowWindow(Window, SW_SHOWNORMAL);
 				GlobalRunning = true;
@@ -700,9 +694,18 @@ int main(void)
 					GetClientRect(Window, &ClientRect);
 					dimensions RenderDimensions = {(uint32_t)ClientRect.right, (uint32_t)ClientRect.bottom};
 					
+                    // Depth Data Acquisition
 					camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
+                    
+                    // Point Cloud Computation
+                    double TimeBegin = GetTimeInSeconds();
 					calculate_point_cloud(VertexArray, &VertexCount, xy_map, DepthMap, DepthMapCount);
+                    double TimeEnd = GetTimeInSeconds();
+                    PrintAverageTime(&PointCloudComputeTimer, (float)(TimeEnd - TimeBegin));
 
+                    // Rendering
+                    TimeBegin = GetTimeInSeconds();
+                    
 					ClearFramebuffer(Framebuffer, 0.0f, 0.0f, 0.0f, 1.0f);
 					ClearDepthBuffer(DepthBuffer);
 					
@@ -713,11 +716,15 @@ int main(void)
 					ProcessVertices(VertexArray, VertexCount, Pipeline, Framebuffer, DepthBuffer, MVP);
 					
 					DisplayFramebuffer(Framebuffer, WindowDC, RenderDimensions.w, RenderDimensions.h);
-					
+                    
+                    TimeEnd = GetTimeInSeconds();
+                    PrintAverageTime(&RenderTimer, (float)(TimeEnd - TimeBegin));
+                    
+					// DeltaTime
 					double FrameTimeEnd = GetTimeInSeconds();
 					DeltaTime = (float)(FrameTimeEnd - FrameTimeStart);
 					
-					PrintFPS(DeltaTime);
+					PrintAverageTime(&FrameTimer, DeltaTime);
 				}
 				
 				//camera_release(Camera);

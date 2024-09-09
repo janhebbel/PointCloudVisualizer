@@ -167,35 +167,25 @@ void calculate_point_cloud(opengl_frame *frame, v2f *xy_map, uint16_t *depth_map
     frame->vertex_count = insert_index;
 }
 
-static void PrintFPS(float DeltaTime)
+typedef struct s_timer {
+    const int FramesToSumUp;
+    int Count;
+    float Acc;
+} timer;
+
+static void PrintAverageTime(timer *Timer, float DeltaTime)
 {
-	static int Count = 0;
-	static float FrameTimeAcc = 0;
-	static int StartingUp = 1;
-    
-    if(StartingUp)
+    if(Timer->Count == Timer->FramesToSumUp)
     {
-        Count++;
-        if(Count > 100)
-        {
-            StartingUp = 0;
-            Count = 0;
-        }
+        float AvgFrameTime = Timer->Acc / (float)Timer->FramesToSumUp;
+        printf("%f ms\n", AvgFrameTime * 1000.0f);
+        Timer->Acc = 0;
+        Timer->Count = 0;
     }
     else
     {
-        int FramesToSumUp = 1000;
-        if(Count == FramesToSumUp)
-        {
-            printf("%f ms, %f fps\n", (FrameTimeAcc/(float)FramesToSumUp), 1.0f / (FrameTimeAcc / (float)FramesToSumUp));
-            FrameTimeAcc = 0;
-            Count = 0;
-        }
-        else
-        {
-            FrameTimeAcc += DeltaTime;
-            Count++;
-        }
+        Timer->Acc += DeltaTime;
+        Timer->Count++;
     }
 }
 
@@ -265,6 +255,9 @@ int main(void)
                 
                 float delta_time = 0.0f;
                 
+                timer TimerCompute = {1000};
+                timer TimerWhole = {1000};
+                
                 while(!glfwWindowShouldClose(window))
                 {
                     double frame_time_start = glfwGetTime();
@@ -279,12 +272,15 @@ int main(void)
                     camera_get_depth_map(camera, 0, depth_map, depth_map_size);
 
                     //
-                    // filling the point cloud with points           
+                    // filling the point cloud with points
+                    double TimeBegin = glfwGetTime();
                     calculate_point_cloud(frame, xy_map, depth_map, depth_map_count);
-
+                    double TimeEnd = glfwGetTime();
+                    PrintAverageTime(&TimerCompute, (float)(TimeEnd - TimeBegin));
                     // done with filling the point cloud
                     // 
                     
+                    // Render
                     opengl_end_frame(opengl, frame, control);
                     
                     glfwSwapBuffers(window);
@@ -292,7 +288,7 @@ int main(void)
                     
                     double frame_time_end = glfwGetTime();
                     delta_time = (float)(frame_time_end - frame_time_start);
-                    PrintFPS(delta_time);
+                    PrintAverageTime(&TimerWhole, delta_time);
                 }
                 
                 // Calling this increases the closing time noticeably...
