@@ -513,8 +513,6 @@ void OpenCLRelease(open_cl *OpenCL)
     clReleaseContext(OpenCL->Context);
 }
 
-//float OpenCLTimeElapsedArray[5];
-
 void CL_CALLBACK ProfilingCallback(cl_event Event, cl_int EventCommandStatus, void *UserData) 
 {
     timer *Timer = (timer *)UserData;
@@ -539,7 +537,6 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     static timer FillImageTimer = {.CountTo = 1000, .Msg = "FillImage"};
     static timer FillBufferTimer = {.CountTo = 1000, .Msg = "FillBuffer"};
     static timer TextureTimer = {.CountTo = 1000, .Msg = "Texture"};
-    //static timer OpenCLTimer = {.CountTo
     
     // Writing the depth map data to the opencl image.
     size_t Origin[] = { 0, 0, 0 };
