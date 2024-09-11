@@ -2,8 +2,32 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include <GLFW/glfw3.h>
+
+typedef struct s_timer {
+    const int FramesToSumUp;
+    int Count;
+    float Acc;
+} timer;
+
+// Prints the average time in ms, assuming DeltaTime is in seconds after accumulating Timer->FramesToSumUp times
+static void PrintAverageTime(timer *Timer, float DeltaTime, const char *text)
+{
+    if(Timer->Count == Timer->FramesToSumUp)
+    {
+        float AvgFrameTime = Timer->Acc / (float)Timer->FramesToSumUp;
+        printf("%s: %f ms\n", text, AvgFrameTime * 1000.0f);
+        Timer->Acc = 0;
+        Timer->Count = 0;
+    }
+    else
+    {
+        Timer->Acc += DeltaTime;
+        Timer->Count++;
+    }
+}
 
 #include "k4a.c"
 #include "opengl_renderer.c"
@@ -114,38 +138,6 @@ void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "Error: %s\n", description);
 }
 
-static void PrintFPS(float DeltaTime)
-{
-	static int Count = 0;
-	static float FrameTimeAcc = 0;
-	static int StartingUp = 1;
-    
-    if(StartingUp)
-    {
-        Count++;
-        if(Count > 100)
-        {
-            StartingUp = 0;
-            Count = 0;
-        }
-    }
-    else
-    {
-        int FramesToSumUp = 1000;
-        if(Count == FramesToSumUp)
-        {
-            printf("%f ms, %f fps\n", (FrameTimeAcc/(float)FramesToSumUp), 1.0f / (FrameTimeAcc / (float)FramesToSumUp));
-            FrameTimeAcc = 0;
-            Count = 0;
-        }
-        else
-        {
-            FrameTimeAcc += DeltaTime;
-            Count++;
-        }
-    }
-}
-
 int main(void)
 {    
     if(glfwInit())
@@ -214,6 +206,10 @@ int main(void)
                 
                 float delta_time = 0.0f;
                 
+                timer FrameTimer = {1000};
+                
+                unsigned FrameCount = 0;
+                
                 while(!glfwWindowShouldClose(window))
                 {
                     double frame_time_start = glfwGetTime();
@@ -233,7 +229,9 @@ int main(void)
                     
                     double frame_time_end = glfwGetTime();
                     delta_time = (float)(frame_time_end - frame_time_start);
-                    PrintFPS(delta_time);
+                    if (FrameCount >= 4) PrintAverageTime(&FrameTimer, delta_time, "Whole");
+                    
+                    FrameCount++;
                 }
                 
                 // Calling this increases the closing time noticeably...

@@ -8,6 +8,7 @@
 
 typedef char GLchar;
 typedef ptrdiff_t GLsizeiptr;
+typedef uint64_t GLuint64;
 
 typedef void (APIENTRY *GLDEBUGPROC)(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam);
 
@@ -50,6 +51,12 @@ typedef void   type_glMemoryBarrier(GLbitfield barriers);
 typedef void   type_glUniform1i(GLint location, GLint v0);
 typedef void   type_glUniform1f(GLint location, GLfloat v0);
 typedef void   type_glTexStorage2D(GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
+typedef void   type_glGenQueries(GLsizei n, GLuint * ids);
+typedef void   type_glBeginQuery(GLenum target, GLuint id);
+typedef void   type_glEndQuery(GLenum target);
+typedef void   type_glGetQueryObjectiv(GLuint id, GLenum pname, GLint * params);
+typedef void   type_glGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 * params);
+typedef void   type_glQueryCounter(GLuint id, GLenum target);
 
 #define GL_DEBUG_SEVERITY_HIGH                  0x9146
 #define GL_DEBUG_SEVERITY_MEDIUM                0x9147
@@ -108,6 +115,10 @@ typedef void   type_glTexStorage2D(GLenum target, GLsizei levels, GLenum interna
 #define GL_READ_WRITE                           0x88BA
 #define GL_SHADER_IMAGE_ACCESS_BARRIER_BIT      0x00000020
 #define GL_TEXTURE_FETCH_BARRIER_BIT            0x00000008
+#define GL_TIME_ELAPSED                         0x88BF
+#define GL_QUERY_RESULT                         0x8866
+#define GL_QUERY_RESULT_AVAILABLE               0x8867
+#define GL_TIMESTAMP                            0x8E28
 
 typedef struct
 {
@@ -117,10 +128,15 @@ typedef struct
 
 #define opengl_function(name) type_##name *name
 
+#define QUERY_COUNT 5
+
 typedef struct
 {
     GLuint default_program;
     GLuint compute_program;
+    
+    GLuint render_queries[QUERY_COUNT];
+    GLuint compute_queries[QUERY_COUNT];
     
     GLuint depth_map_texture;
     GLuint xy_table_texture;
@@ -168,6 +184,12 @@ typedef struct
     opengl_function(glUniform1i);
     opengl_function(glUniform1f);
     opengl_function(glTexStorage2D);
+    opengl_function(glGenQueries);
+    opengl_function(glBeginQuery);
+    opengl_function(glEndQuery);
+    opengl_function(glGetQueryObjectiv);
+    opengl_function(glGetQueryObjectui64v);
+    opengl_function(glQueryCounter);
 
 } open_gl;
 
@@ -393,6 +415,12 @@ open_gl *opengl_init(dimensions depth_image_dimensions)
     get_opengl_function(glUniform1i);
     get_opengl_function(glUniform1f);
     get_opengl_function(glTexStorage2D);
+    get_opengl_function(glGenQueries);
+    get_opengl_function(glBeginQuery);
+    get_opengl_function(glEndQuery);
+    get_opengl_function(glGetQueryObjectiv);
+    get_opengl_function(glGetQueryObjectui64v);
+    get_opengl_function(glQueryCounter);
     
 #ifdef DEBUG
     if(opengl->glDebugMessageCallback)
@@ -445,12 +473,23 @@ open_gl *opengl_init(dimensions depth_image_dimensions)
     GLuint dummy_vertex_array;
     opengl->glGenVertexArrays(1, &dummy_vertex_array);
     opengl->glBindVertexArray(dummy_vertex_array);
+    
+    opengl->glGenQueries(QUERY_COUNT, opengl->render_queries);
+    opengl->glGenQueries(QUERY_COUNT, opengl->compute_queries);
 
     return(opengl);
 }
 
 void calculate_point_cloud(open_gl *opengl, v2f *xy_map, uint16_t *depth_map)
 {
+    static timer ComputeTimer = {1000};
+    static unsigned frame_counter = 0;
+    unsigned query_index = frame_counter % QUERY_COUNT;
+    
+    // measure time
+    opengl->glBeginQuery(GL_TIME_ELAPSED, opengl->compute_queries[query_index]);
+    
+    // compute
     uint32_t width = opengl->depth_image_dimensions.w;
     uint32_t height = opengl->depth_image_dimensions.h;
 
@@ -479,10 +518,35 @@ void calculate_point_cloud(open_gl *opengl, v2f *xy_map, uint16_t *depth_map)
     
     opengl->glDispatchCompute(width, height, 1);
     opengl->glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+    
+    // measure time
+    opengl->glEndQuery(GL_TIME_ELAPSED);
+    
+    // look back 4 frames to make sure all queries are finished once requested
+    unsigned prev_query_index = (query_index - 4) % QUERY_COUNT;
+    if (frame_counter >= 4) {
+        GLint prev_query_available;
+        opengl->glGetQueryObjectiv(opengl->compute_queries[prev_query_index], GL_QUERY_RESULT_AVAILABLE, &prev_query_available);
+        if(prev_query_available) {
+            GLuint64 time_elapsed;
+            opengl->glGetQueryObjectui64v(opengl->compute_queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
+            PrintAverageTime(&ComputeTimer, time_elapsed / 1e+9f, "Compute");
+        }
+    }
+    
+    frame_counter++;
 }
 
 void render_point_cloud(open_gl *opengl, dimensions render_dimensions, view_control *control, float point_size)
 {
+    static timer RenderTimer = {1000};
+    static unsigned frame_counter = 0;
+    unsigned query_index = frame_counter % QUERY_COUNT;
+    
+    // measure time
+    opengl->glBeginQuery(GL_TIME_ELAPSED, opengl->render_queries[query_index]);
+    
+    // render
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_PROGRAM_POINT_SIZE);
     
@@ -515,4 +579,21 @@ void render_point_cloud(open_gl *opengl, dimensions render_dimensions, view_cont
     glViewport(0, 0, render_width, render_height);
     
     glDrawArrays(GL_POINTS, 0, width * height);
+    
+    // measure time
+    opengl->glEndQuery(GL_TIME_ELAPSED);
+    
+    // look back 4 frames to make sure all queries are finished once requested
+    unsigned prev_query_index = (query_index - 4) % QUERY_COUNT;
+    if (frame_counter >= 4) {
+        GLint prev_query_available;
+        opengl->glGetQueryObjectiv(opengl->render_queries[prev_query_index], GL_QUERY_RESULT_AVAILABLE, &prev_query_available);
+        if(prev_query_available) {
+            GLuint64 time_elapsed;
+            opengl->glGetQueryObjectui64v(opengl->render_queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
+            PrintAverageTime(&RenderTimer, time_elapsed / 1e+9f, "Draw");
+        }
+    }
+    
+    frame_counter++;
 }
