@@ -75,11 +75,6 @@ typedef struct
 
 #define opengl_function(name) type_##name *name
 
-typedef struct {
-    GLuint begin;
-    GLuint end;
-} ogl_timestamp_query;
-
 #define QUERY_COUNT 5
 
 typedef struct
@@ -88,7 +83,7 @@ typedef struct
     
     GLuint vertex_buffer;
     
-    ogl_timestamp_query queries[QUERY_COUNT];
+    GLuint queries[QUERY_COUNT];
     
     color_point *vertex_array;
     uint32_t max_vertex_count;
@@ -361,7 +356,7 @@ open_gl *opengl_init(depth_image_dimension *dim)
     opengl->glGenBuffers(1, &opengl->vertex_buffer);
     opengl->glBindBuffer(GL_ARRAY_BUFFER, opengl->vertex_buffer);
     
-    opengl->glGenQueries(2 * QUERY_COUNT, &opengl->queries[0].begin);
+    opengl->glGenQueries(QUERY_COUNT, opengl->queries);
     
     return(opengl);
 }
@@ -386,8 +381,7 @@ void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *contro
     unsigned query_index = frame_counter % QUERY_COUNT;
     
     // measure time
-    opengl->glQueryCounter(opengl->queries[query_index].begin, GL_TIMESTAMP);
-    // opengl->glBeginQuery(GL_TIME_ELAPSED, opengl->queries[query_index].begin);
+    opengl->glBeginQuery(GL_TIME_ELAPSED, opengl->queries[query_index]);
     
     // start rendering set up
     glEnable(GL_DEPTH_TEST);
@@ -421,25 +415,19 @@ void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *contro
     glDrawArrays(GL_POINTS, 0, frame->vertex_count);
     
     // measure time
-    opengl->glQueryCounter(opengl->queries[query_index].end, GL_TIMESTAMP);
-    // opengl->glBeginQuery(GL_TIME_ELAPSED, opengl->queries[query_index].end);
+    opengl->glEndQuery(GL_TIME_ELAPSED);
     
-    // glFinish();
-    
+    // look back 4 frames to make sure all queries are finished once requested
     unsigned prev_query_index = (query_index - 4) % QUERY_COUNT;
     if (frame_counter >= 4) {
         GLint prev_query_available;
-        opengl->glGetQueryObjectiv(opengl->queries[prev_query_index].end, GL_QUERY_RESULT_AVAILABLE, &prev_query_available);
+        opengl->glGetQueryObjectiv(opengl->queries[prev_query_index], GL_QUERY_RESULT_AVAILABLE, &prev_query_available);
         if(prev_query_available) {
-            // GLuint64 time_elapsed;
-            // opengl->glGetQueryObjectui64v(opengl->queries[prev_query_index].end, GL_QUERY_RESULT, &time_begin);
-            GLuint64 time_begin, time_end;
-            opengl->glGetQueryObjectui64v(opengl->queries[prev_query_index].begin, GL_QUERY_RESULT, &time_begin);
-            opengl->glGetQueryObjectui64v(opengl->queries[prev_query_index].end, GL_QUERY_RESULT, &time_end);
-            PrintAverageTime(&RenderTimer, (time_end - time_begin) / 1e+9f, "Draw");
-            // printf("%f\n", (time_end - time_begin) / 1e+6f);
+            GLuint64 time_elapsed;
+            opengl->glGetQueryObjectui64v(opengl->queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
+            PrintAverageTime(&RenderTimer, time_elapsed / 1e+9f, "Draw");
         }
     }
     
-    frame_counter = frame_counter + 1 < frame_counter ? 1 : frame_counter + 1;
+    frame_counter++;
 }
