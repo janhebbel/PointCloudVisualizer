@@ -260,6 +260,8 @@ int main(void)
                 timer TimerCompute = {1000};
                 timer TimerWhole = {1000};
                 
+                unsigned FrameCount = 0;
+                
                 while(!glfwWindowShouldClose(window))
                 {
                     double frame_time_start = glfwGetTime();
@@ -278,7 +280,7 @@ int main(void)
                     double TimeBegin = glfwGetTime();
                     calculate_point_cloud(frame, xy_map, depth_map, depth_map_count);
                     double TimeEnd = glfwGetTime();
-                    PrintAverageTime(&TimerCompute, (float)(TimeEnd - TimeBegin), "Compute");
+                    if (FrameCount >= 4) PrintAverageTime(&TimerCompute, (float)(TimeEnd - TimeBegin), "Compute");
                     // done with filling the point cloud
                     // 
                     
@@ -290,7 +292,9 @@ int main(void)
                     
                     double frame_time_end = glfwGetTime();
                     delta_time = (float)(frame_time_end - frame_time_start);
-                    PrintAverageTime(&TimerWhole, delta_time, "Whole");
+                    if (FrameCount >= 4) PrintAverageTime(&TimerWhole, delta_time, "Whole");
+                    
+                    FrameCount++;
                 }
                 
                 // Calling this increases the closing time noticeably...
