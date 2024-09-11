@@ -18,6 +18,30 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
+typedef struct s_timer {
+    const int CountTo;
+    char *Msg;
+    int Count;
+    float Acc;
+} timer;
+
+// Prints the average time in ms, assuming DeltaTime is in seconds after accumulating CountTo times
+static void PrintAverageTime(timer *Timer, float DeltaTime)
+{
+    if(Timer->Count == Timer->CountTo)
+    {
+        float AvgFrameTime = Timer->Acc / (float)Timer->CountTo;
+        printf("%s: %f ms\n", Timer->Msg, AvgFrameTime * 1000.0f);
+        Timer->Acc = 0;
+        Timer->Count = 0;
+    }
+    else
+    {
+        Timer->Acc += DeltaTime;
+        Timer->Count++;
+    }
+}
+
 #include "linalg.h"
 #include "types.h"
 #include "k4a.c"
@@ -127,38 +151,6 @@ void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "Error: %s\n", description);
 }
 
-static void PrintFPS(float DeltaTime)
-{
-	static int Count = 0;
-	static float FrameTimeAcc = 0;
-	static int StartingUp = 1;
-    
-    if(StartingUp)
-    {
-        Count++;
-        if(Count > 100)
-        {
-            StartingUp = 0;
-            Count = 0;
-        }
-    }
-    else
-    {
-        int FramesToSumUp = 1000;
-        if(Count == FramesToSumUp)
-        {
-            printf("%f ms, %f fps\n", (FrameTimeAcc/(float)FramesToSumUp), 1.0f / (FrameTimeAcc / (float)FramesToSumUp));
-            FrameTimeAcc = 0;
-            Count = 0;
-        }
-        else
-        {
-            FrameTimeAcc += DeltaTime;
-            Count++;
-        }
-    }
-}
-
 int main(void)
 {
 	int ExitCode = 0;
@@ -243,6 +235,10 @@ int main(void)
                 float PointSize = 1.0f;
                 
                 float DeltaTime = 0.0f;
+                
+                timer WholeTimer = {.CountTo = 1000, .Msg = "Whole"};
+                
+                unsigned FrameCount = 0;
 				
 				while(!glfwWindowShouldClose(Window))
 				{
@@ -271,7 +267,9 @@ int main(void)
 					double FrameTimeEnd = glfwGetTime();
 					DeltaTime = (float)(FrameTimeEnd - FrameTimeStart);
 					
-					PrintFPS(DeltaTime);
+					PrintAverageTime(&WholeTimer, DeltaTime);
+					
+					FrameCount++;
 				}
                 
 				//OpenCLRelease(OpenCL);

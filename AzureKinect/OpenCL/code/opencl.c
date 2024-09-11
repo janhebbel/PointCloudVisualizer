@@ -424,6 +424,7 @@ PlatformFound:
     {
         cl_queue_properties CommandQueueProperties[] = 
         {
+            CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE,
             0
         };
         
@@ -512,14 +513,32 @@ void OpenCLRelease(open_cl *OpenCL)
     clReleaseContext(OpenCL->Context);
 }
 
+void CL_CALLBACK ProfilingCallback(cl_event Event, cl_int EventCommandStatus, void *UserData) 
+{
+    timer *Timer = (timer *)UserData;
+    
+    cl_ulong TimeStart, TimeEnd;
+    
+    cl_int Result = 0;
+    Result |= clGetEventProfilingInfo(Event, CL_PROFILING_COMMAND_START, sizeof(TimeStart), &TimeStart, NULL);
+    Result |= clGetEventProfilingInfo(Event, CL_PROFILING_COMMAND_COMPLETE, sizeof(TimeEnd), &TimeEnd, NULL);
+    assert(Result == CL_SUCCESS);
+    
+    PrintAverageTime(Timer, (TimeEnd - TimeStart) / 1e9f);
+}
+
 void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint16_t *DepthMap, uint32_t DepthMapWidth, uint32_t DepthMapHeight, view_control *Control)
 {
     cl_int Result = 0;
     
+    // setting up profiling
+    static timer ComputeTimer = {.CountTo = 1000, .Msg = "Compute"};
+    static timer TextureTimer = {.CountTo = 1000, .Msg = "Texture"};
+    
+    // Writing the depth map data to the opencl image.
     size_t Origin[] = { 0, 0, 0 };
     size_t DepthMapRegion[] = { DepthMapWidth, DepthMapHeight, 1 };
     
-    // Writing the depth map data to the opencl image.
     cl_event WroteToDepthMapImageEvent;
     Result = clEnqueueWriteImage(
         OpenCL->CommandQueue, 
@@ -544,6 +563,8 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     size_t GlobalWorkSize[] = { DepthMapWidth, DepthMapHeight };
     size_t *LocalWorkSize = NULL;
     
+    //
+    // COMPUTING POINT CLOUD
     cl_event ComputedPointCloud;
     Result = clEnqueueNDRangeKernel(
         OpenCL->CommandQueue, 
@@ -553,6 +574,10 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
         1, &WroteToDepthMapImageEvent, 
         &ComputedPointCloud);
     assert(Result == CL_SUCCESS);
+    
+    clSetEventCallback(ComputedPointCloud, CL_COMPLETE, ProfilingCallback, &ComputeTimer);
+    
+    clReleaseEvent(WroteToDepthMapImageEvent);
 
     // Acquire GL Objects
     cl_event AcquiredGLFramebuffer;
@@ -573,6 +598,8 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     Result |= clEnqueueFillBuffer(OpenCL->CommandQueue, OpenCL->DepthBuffer, DepthPlusLock, 2 * sizeof(unsigned int), 0, OpenCL->FramebufferWidth * OpenCL->FramebufferHeight * sizeof(unsigned int) * 2, 0, NULL, &FilledDepthBuffer);
     assert(Result == CL_SUCCESS);
     
+    clReleaseEvent(AcquiredGLFramebuffer);
+    
     Result = 0;
     Result |= clSetKernelArg(OpenCL->PipelineKernel, 0, sizeof(cl_mem), &OpenCL->PositionImage);
     Result |= clSetKernelArg(OpenCL->PipelineKernel, 1, sizeof(cl_mem), &OpenCL->ColorImage);
@@ -591,6 +618,8 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
 
     cl_event Events[] = { FilledFramebuffer, FilledDepthBuffer, ComputedPointCloud };
 
+    //
+    // RENDERING TO TEXTURE
     cl_event PipelineDoneEvent;
     Result = clEnqueueNDRangeKernel(
         OpenCL->CommandQueue, 
@@ -601,9 +630,16 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
         &PipelineDoneEvent);
     assert(Result == CL_SUCCESS);
     
-    Result = clEnqueueReleaseGLObjects(OpenCL->CommandQueue, 1, &OpenCL->Framebuffer, 1, &PipelineDoneEvent, NULL);
+    clSetEventCallback(PipelineDoneEvent, CL_COMPLETE, ProfilingCallback, &TextureTimer);
+    
+    clReleaseEvent(FilledFramebuffer);
+    clReleaseEvent(FilledDepthBuffer);
+    clReleaseEvent(ComputedPointCloud);
+    
+    // release OpenGL objects
+    cl_event GLObjectsReleasedEvent;
+    Result = clEnqueueReleaseGLObjects(OpenCL->CommandQueue, 1, &OpenCL->Framebuffer, 1, &PipelineDoneEvent, &GLObjectsReleasedEvent);
     assert(Result == CL_SUCCESS);
     
-    Result = clFinish(OpenCL->CommandQueue);
-    assert(Result == CL_SUCCESS);
+    clReleaseEvent(PipelineDoneEvent);
 }

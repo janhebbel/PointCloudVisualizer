@@ -11,7 +11,12 @@ echo Building...
 echo:
 
 echo Debug
-cl %compile_flags% /MT /Od /Z7 /D "DEBUG" /D "_DEBUG" /D "UNICODE" /Fedebug %files% /link /debug %linker_flags%
+cl %compile_flags% /MT /Od /Zi /D "DEBUG" /D "_DEBUG" /D "UNICODE" /Fedebug %files% /link %linker_flags%
+
+echo:
+
+echo Release With Debug Symbols
+cl %compile_flags% /MT /O2 /Zi /D "DEBUG" /D "RELEASE" /D "NDEBUG" /D "UNICODE" /Fe"release_with_debug_info" %files% /link %linker_flags%
 
 echo:
 
