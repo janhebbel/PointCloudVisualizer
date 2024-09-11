@@ -12,12 +12,13 @@ typedef struct s_timer {
     float Acc;
 } timer;
 
-static void PrintAverageTime(timer *Timer, float DeltaTime)
+// Prints the average time in ms, assuming DeltaTime is in seconds after accumulating Timer->FramesToSumUp times
+static void PrintAverageTime(timer *Timer, float DeltaTime, const char *text)
 {
     if(Timer->Count == Timer->FramesToSumUp)
     {
         float AvgFrameTime = Timer->Acc / (float)Timer->FramesToSumUp;
-        printf("%f ms\n", AvgFrameTime * 1000.0f);
+        printf("%s: %f ms\n", text, AvgFrameTime * 1000.0f);
         Timer->Acc = 0;
         Timer->Count = 0;
     }
@@ -277,7 +278,7 @@ int main(void)
                     double TimeBegin = glfwGetTime();
                     calculate_point_cloud(frame, xy_map, depth_map, depth_map_count);
                     double TimeEnd = glfwGetTime();
-                    PrintAverageTime(&TimerCompute, (float)(TimeEnd - TimeBegin));
+                    PrintAverageTime(&TimerCompute, (float)(TimeEnd - TimeBegin), "Compute");
                     // done with filling the point cloud
                     // 
                     
@@ -289,7 +290,7 @@ int main(void)
                     
                     double frame_time_end = glfwGetTime();
                     delta_time = (float)(frame_time_end - frame_time_start);
-                    PrintAverageTime(&TimerWhole, delta_time);
+                    PrintAverageTime(&TimerWhole, delta_time, "Whole");
                 }
                 
                 // Calling this increases the closing time noticeably...
