@@ -8,6 +8,7 @@
 
 typedef char GLchar;
 typedef ptrdiff_t GLsizeiptr;
+typedef uint64_t GLuint64;
 
 typedef void (APIENTRY *GLDEBUGPROC)(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam);
 
@@ -50,6 +51,12 @@ typedef void   type_glMemoryBarrier(GLbitfield barriers);
 typedef void   type_glUniform1i(GLint location, GLint v0);
 typedef void   type_glUniform1f(GLint location, GLfloat v0);
 typedef void   type_glTexStorage2D(GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
+typedef void   type_glGenQueries(GLsizei n, GLuint * ids);
+typedef void   type_glBeginQuery(GLenum target, GLuint id);
+typedef void   type_glEndQuery(GLenum target);
+typedef void   type_glGetQueryObjectiv(GLuint id, GLenum pname, GLint * params);
+typedef void   type_glGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 * params);
+typedef void   type_glQueryCounter(GLuint id, GLenum target);
 
 typedef struct
 {
@@ -68,11 +75,20 @@ typedef struct
 
 #define opengl_function(name) type_##name *name
 
+typedef struct {
+    GLuint begin;
+    GLuint end;
+} ogl_timestamp_query;
+
+#define QUERY_COUNT 5
+
 typedef struct
 {
     GLuint default_program;
     
     GLuint vertex_buffer;
+    
+    ogl_timestamp_query queries[QUERY_COUNT];
     
     color_point *vertex_array;
     uint32_t max_vertex_count;
@@ -121,6 +137,12 @@ typedef struct
     opengl_function(glUniform1i);
     opengl_function(glUniform1f);
     opengl_function(glTexStorage2D);
+    opengl_function(glGenQueries);
+    opengl_function(glBeginQuery);
+    opengl_function(glEndQuery);
+    opengl_function(glGetQueryObjectiv);
+    opengl_function(glGetQueryObjectui64v);
+    opengl_function(glQueryCounter);
 
 } open_gl;
 
@@ -181,6 +203,10 @@ typedef struct
 #define GL_READ_WRITE                           0x88BA
 #define GL_SHADER_IMAGE_ACCESS_BARRIER_BIT      0x00000020
 #define GL_TEXTURE_FETCH_BARRIER_BIT            0x00000008
+#define GL_TIME_ELAPSED                         0x88BF
+#define GL_QUERY_RESULT                         0x8866
+#define GL_QUERY_RESULT_AVAILABLE               0x8867
+#define GL_TIMESTAMP                            0x8E28
 
 void APIENTRY 
 opengl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
@@ -310,6 +336,12 @@ open_gl *opengl_init(depth_image_dimension *dim)
     get_opengl_function(glUniform1i);
     get_opengl_function(glUniform1f);
     get_opengl_function(glTexStorage2D);
+    get_opengl_function(glGenQueries);
+    get_opengl_function(glBeginQuery);
+    get_opengl_function(glEndQuery);
+    get_opengl_function(glGetQueryObjectiv);
+    get_opengl_function(glGetQueryObjectui64v);
+    get_opengl_function(glQueryCounter);
     
 #ifdef DEBUG
     if(opengl->glDebugMessageCallback)
@@ -329,6 +361,8 @@ open_gl *opengl_init(depth_image_dimension *dim)
     opengl->glGenBuffers(1, &opengl->vertex_buffer);
     opengl->glBindBuffer(GL_ARRAY_BUFFER, opengl->vertex_buffer);
     
+    opengl->glGenQueries(2 * QUERY_COUNT, &opengl->queries[0].begin);
+    
     return(opengl);
 }
 
@@ -347,6 +381,15 @@ opengl_frame *opengl_begin_frame(open_gl *opengl, v2u render_dim)
 
 void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *control/*, uint16_t *depth_map, float *xy_table*/)
 {
+    static timer RenderTimer = {1000};
+    static unsigned frame_counter = 0;
+    unsigned query_index = frame_counter % QUERY_COUNT;
+    
+    // measure time
+    opengl->glQueryCounter(opengl->queries[query_index].begin, GL_TIMESTAMP);
+    // opengl->glBeginQuery(GL_TIME_ELAPSED, opengl->queries[query_index].begin);
+    
+    // start rendering set up
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_PROGRAM_POINT_SIZE);
     
@@ -376,4 +419,27 @@ void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *contro
     glViewport(0, 0, render_width, render_height);
     
     glDrawArrays(GL_POINTS, 0, frame->vertex_count);
+    
+    // measure time
+    opengl->glQueryCounter(opengl->queries[query_index].end, GL_TIMESTAMP);
+    // opengl->glBeginQuery(GL_TIME_ELAPSED, opengl->queries[query_index].end);
+    
+    // glFinish();
+    
+    unsigned prev_query_index = (query_index - 1) % QUERY_COUNT;
+    if (frame_counter >= 1) {
+        GLint prev_query_available;
+        opengl->glGetQueryObjectiv(opengl->queries[prev_query_index].end, GL_QUERY_RESULT_AVAILABLE, &prev_query_available);
+        if(prev_query_available) {
+            // GLuint64 time_elapsed;
+            // opengl->glGetQueryObjectui64v(opengl->queries[prev_query_index].end, GL_QUERY_RESULT, &time_begin);
+            GLuint64 time_begin, time_end;
+            opengl->glGetQueryObjectui64v(opengl->queries[prev_query_index].begin, GL_QUERY_RESULT, &time_begin);
+            opengl->glGetQueryObjectui64v(opengl->queries[prev_query_index].end, GL_QUERY_RESULT, &time_end);
+            PrintAverageTime(&RenderTimer, (time_end - time_begin) / 1e+6f);
+            // printf("%f\n", (time_end - time_begin) / 1e+6f);
+        }
+    }
+    
+    frame_counter = frame_counter + 1 < frame_counter ? 1 : frame_counter + 1;
 }

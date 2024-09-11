@@ -2,8 +2,31 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include <GLFW/glfw3.h>
+
+typedef struct s_timer {
+    const int FramesToSumUp;
+    int Count;
+    float Acc;
+} timer;
+
+static void PrintAverageTime(timer *Timer, float DeltaTime)
+{
+    if(Timer->Count == Timer->FramesToSumUp)
+    {
+        float AvgFrameTime = Timer->Acc / (float)Timer->FramesToSumUp;
+        printf("%f ms\n", AvgFrameTime * 1000.0f);
+        Timer->Acc = 0;
+        Timer->Count = 0;
+    }
+    else
+    {
+        Timer->Acc += DeltaTime;
+        Timer->Count++;
+    }
+}
 
 #include "k4a.c"
 #include "opengl_renderer.c"
@@ -165,28 +188,6 @@ void calculate_point_cloud(opengl_frame *frame, v2f *xy_map, uint16_t *depth_map
     }
 
     frame->vertex_count = insert_index;
-}
-
-typedef struct s_timer {
-    const int FramesToSumUp;
-    int Count;
-    float Acc;
-} timer;
-
-static void PrintAverageTime(timer *Timer, float DeltaTime)
-{
-    if(Timer->Count == Timer->FramesToSumUp)
-    {
-        float AvgFrameTime = Timer->Acc / (float)Timer->FramesToSumUp;
-        printf("%f ms\n", AvgFrameTime * 1000.0f);
-        Timer->Acc = 0;
-        Timer->Count = 0;
-    }
-    else
-    {
-        Timer->Acc += DeltaTime;
-        Timer->Count++;
-    }
 }
 
 int main(void)
