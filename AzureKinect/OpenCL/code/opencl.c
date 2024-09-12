@@ -527,16 +527,18 @@ void CL_CALLBACK ProfilingCallback(cl_event Event, cl_int EventCommandStatus, vo
     PrintAverageTime(Timer, (TimeEnd - TimeStart) / 1e9f);
 }
 
+// DONT USE CALLBACK DO IT IN THE FUNCTION USE THE FIRST AND LAST EVENT OF BOTH COMPUTE AND TEXTURE 
+// START OF FIRST AND COMPLETE OF LAST EVENT, THEN SUBTRACT; SHOULDNT BE MUCH CPU WAIT TIME
+
+timer WriteTimer = {.CountTo = 1000, .Msg = "Write"};
+timer ComputeTimer = {.CountTo = 1000, .Msg = "Compute"};
+timer FillImageTimer = {.CountTo = 1000, .Msg = "FillImage"};
+timer FillBufferTimer = {.CountTo = 1000, .Msg = "FillBuffer"};
+timer TextureTimer = {.CountTo = 1000, .Msg = "Texture"};
+
 void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint16_t *DepthMap, uint32_t DepthMapWidth, uint32_t DepthMapHeight, view_control *Control)
 {
     cl_int Result = 0;
-    
-    // setting up profiling
-    static timer WriteTimer = {.CountTo = 1000, .Msg = "Write"};
-    static timer ComputeTimer = {.CountTo = 1000, .Msg = "Compute"};
-    static timer FillImageTimer = {.CountTo = 1000, .Msg = "FillImage"};
-    static timer FillBufferTimer = {.CountTo = 1000, .Msg = "FillBuffer"};
-    static timer TextureTimer = {.CountTo = 1000, .Msg = "Texture"};
     
     // Writing the depth map data to the opencl image.
     size_t Origin[] = { 0, 0, 0 };
