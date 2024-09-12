@@ -513,10 +513,16 @@ void OpenCLRelease(open_cl *OpenCL)
     clReleaseContext(OpenCL->Context);
 }
 
-void CL_CALLBACK ProfilingCallback(cl_event Event, cl_int EventCommandStatus, void *UserData) 
+float ComputeTime = 0;
+float RenderTime = 0;
+int NotLast = 0;
+int Last = 1;
+
+timer ComputeTimer = {.CountTo = 1000, .Msg = "Compute"};
+timer RenderTimer = {.CountTo = 1000, .Msg = "Render"};
+
+float GetTimeElapsed(cl_event Event) 
 {
-    timer *Timer = (timer *)UserData;
-    
     cl_ulong TimeStart, TimeEnd;
     
     cl_int Result = 0;
@@ -524,17 +530,25 @@ void CL_CALLBACK ProfilingCallback(cl_event Event, cl_int EventCommandStatus, vo
     Result |= clGetEventProfilingInfo(Event, CL_PROFILING_COMMAND_COMPLETE, sizeof(TimeEnd), &TimeEnd, NULL);
     assert(Result == CL_SUCCESS);
     
-    PrintAverageTime(Timer, (TimeEnd - TimeStart) / 1e9f);
+    return (TimeEnd - TimeStart) / 1e9f;
+}
+
+void CL_CALLBACK ComputeProfilingCallback(cl_event Event, cl_int EventCommandStatus, void *UserData) 
+{
+    int MaybeLast = *(int *)UserData;
+    ComputeTime += GetTimeElapsed(Event);
+    if (MaybeLast) PrintAverageTime(&ComputeTimer, ComputeTime);
+}
+
+void CL_CALLBACK RenderProfilingCallback(cl_event Event, cl_int EventCommandStatus, void *UserData) 
+{
+    int MaybeLast = *(int *)UserData;
+    RenderTime += GetTimeElapsed(Event);
+    if (MaybeLast) PrintAverageTime(&RenderTimer, RenderTime);
 }
 
 // DONT USE CALLBACK DO IT IN THE FUNCTION USE THE FIRST AND LAST EVENT OF BOTH COMPUTE AND TEXTURE 
 // START OF FIRST AND COMPLETE OF LAST EVENT, THEN SUBTRACT; SHOULDNT BE MUCH CPU WAIT TIME
-
-timer WriteTimer = {.CountTo = 1000, .Msg = "Write"};
-timer ComputeTimer = {.CountTo = 1000, .Msg = "Compute"};
-timer FillImageTimer = {.CountTo = 1000, .Msg = "FillImage"};
-timer FillBufferTimer = {.CountTo = 1000, .Msg = "FillBuffer"};
-timer TextureTimer = {.CountTo = 1000, .Msg = "Texture"};
 
 void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint16_t *DepthMap, uint32_t DepthMapWidth, uint32_t DepthMapHeight, view_control *Control)
 {
@@ -555,7 +569,7 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
         0, NULL, &WroteToDepthMapImageEvent);
     assert(Result == CL_SUCCESS);
     
-    clSetEventCallback(WroteToDepthMapImageEvent, CL_COMPLETE, ProfilingCallback, &WriteTimer);
+    clSetEventCallback(WroteToDepthMapImageEvent, CL_COMPLETE, ComputeProfilingCallback, &NotLast);
 
     // Set Kernel Arguments and Enqueue the Kernel in the command queue.
     Result = 0;
@@ -582,13 +596,13 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
         &ComputedPointCloud);
     assert(Result == CL_SUCCESS);
     
-    clSetEventCallback(ComputedPointCloud, CL_COMPLETE, ProfilingCallback, &ComputeTimer);
+    clSetEventCallback(ComputedPointCloud, CL_COMPLETE, ComputeProfilingCallback, &Last);
 
     // Acquire GL Objects
     cl_event AcquiredGLFramebuffer;
     Result = clEnqueueAcquireGLObjects(OpenCL->CommandQueue, 1, &OpenCL->Framebuffer, 0, NULL, &AcquiredGLFramebuffer);
     assert(Result == CL_SUCCESS);
-    
+        
     float Color[] = { 0.0f, 0.0f, 0.0f, 1.0f };
     unsigned int DepthPlusLock[] = { UINT_MAX, 0 };
 
@@ -603,8 +617,8 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     Result |= clEnqueueFillBuffer(OpenCL->CommandQueue, OpenCL->DepthBuffer, DepthPlusLock, 2 * sizeof(unsigned int), 0, OpenCL->FramebufferWidth * OpenCL->FramebufferHeight * sizeof(unsigned int) * 2, 0, NULL, &FilledDepthBuffer);
     assert(Result == CL_SUCCESS);
     
-    clSetEventCallback(FilledFramebuffer, CL_COMPLETE, ProfilingCallback, &FillImageTimer);
-    clSetEventCallback(FilledDepthBuffer, CL_COMPLETE, ProfilingCallback, &FillBufferTimer);
+    clSetEventCallback(FilledFramebuffer, CL_COMPLETE, RenderProfilingCallback, &NotLast);
+    clSetEventCallback(FilledDepthBuffer, CL_COMPLETE, RenderProfilingCallback, &NotLast);
     
     Result = 0;
     Result |= clSetKernelArg(OpenCL->PipelineKernel, 0, sizeof(cl_mem), &OpenCL->PositionImage);
@@ -636,13 +650,13 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
         &PipelineDoneEvent);
     assert(Result == CL_SUCCESS);
     
-    clSetEventCallback(PipelineDoneEvent, CL_COMPLETE, ProfilingCallback, &TextureTimer);
+    clSetEventCallback(PipelineDoneEvent, CL_COMPLETE, RenderProfilingCallback, &Last);
     
     // release OpenGL objects
     cl_event GLObjectsReleasedEvent;
     Result = clEnqueueReleaseGLObjects(OpenCL->CommandQueue, 1, &OpenCL->Framebuffer, 1, &PipelineDoneEvent, &GLObjectsReleasedEvent);
     assert(Result == CL_SUCCESS);
-    
+        
     // release events
     clReleaseEvent(GLObjectsReleasedEvent);
     clReleaseEvent(PipelineDoneEvent);
@@ -651,4 +665,7 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     clReleaseEvent(FilledFramebuffer);
     clReleaseEvent(AcquiredGLFramebuffer);
     clReleaseEvent(WroteToDepthMapImageEvent);
+    
+    ComputeTime = 0;
+    RenderTime = 0;
 }

@@ -258,8 +258,12 @@ int main(void)
 						CLGLUpdateSettings(OpenCL, OpenGL, RenderWidth, RenderHeight);
 					}
 					
+					static timer Test = {.CountTo = 1000, .Msg = "CPU"};
+					double Begin = glfwGetTime();
 					OpenCLRenderToTexture(OpenCL, Camera->min_depth, Camera->max_depth, DepthMap, DepthMapWidth, DepthMapHeight, Control);
 					OpenGLRenderToScreen(OpenGL, RenderWidth, RenderHeight);
+					double End = glfwGetTime();
+					PrintAverageTime(&Test, (float)(End - Begin));
                     
 					glfwSwapBuffers(Window);
 					glfwPollEvents();
