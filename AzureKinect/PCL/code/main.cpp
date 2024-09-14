@@ -7,8 +7,56 @@
 
 #include <pcl/common/common_headers.h>
 #include <pcl/visualization/pcl_visualizer.h>
+#include <vtkOpenGLRenderer.h>
 
 #include "k4a.c"
+
+typedef struct s_timer {
+    const int CountTo;
+    char *Msg;
+    int Count;
+    float Acc;
+} timer;
+
+// Prints the average time in ms, assuming DeltaTime is in seconds after accumulating CountTo times
+static void PrintAverageTime(timer *Timer, float DeltaTime)
+{
+    if(Timer->Count == Timer->CountTo)
+    {
+        float AvgFrameTime = Timer->Acc / (float)Timer->CountTo;
+        printf("%s: %f ms\n", Timer->Msg, AvgFrameTime * 1000.0f);
+        Timer->Acc = 0;
+        Timer->Count = 0;
+    }
+    else
+    {
+        Timer->Acc += DeltaTime;
+        Timer->Count++;
+    }
+}
+
+typedef struct {
+	const int CountTo;
+	char *Msg;
+	char *Unit;
+	int Count;
+	float Acc;
+} average;
+
+static void PrintAverage(average *Average, float Value) {
+    if(Average->Count == Average->CountTo)
+    {
+        float Avg = Average->Acc / (float)Average->CountTo;
+        printf("%s: %f %s\n", Average->Msg, Avg, Average->Unit);
+        Average->Acc = 0;
+        Average->Count = 0;
+    }
+    else
+    {
+        Average->Acc += Value;
+        Average->Count++;
+    }
+}
 
 #define clamp(x, low, high) std::max(low, std::min(high, x))
 
@@ -83,38 +131,6 @@ v3f HSV2RGB(v3f HSV)
 	return(RGB);
 }
 
-static void PrintFPS(float DeltaTime)
-{
-	static int Count = 0;
-	static float FrameTimeAcc = 0;
-	static int StartingUp = 1;
-    
-    if(StartingUp)
-    {
-        Count++;
-        if(Count > 100)
-        {
-            StartingUp = 0;
-            Count = 0;
-        }
-    }
-    else
-    {
-        int FramesToSumUp = 1000;
-        if(Count == FramesToSumUp)
-        {
-            printf("%f ms, %f fps\n", (FrameTimeAcc/(float)FramesToSumUp), 1.0f / (FrameTimeAcc / (float)FramesToSumUp));
-            FrameTimeAcc = 0;
-            Count = 0;
-        }
-        else
-        {
-            FrameTimeAcc += DeltaTime;
-            Count++;
-        }
-    }
-}
-
 int main(void)
 {
     camera_config config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
@@ -152,17 +168,27 @@ int main(void)
         viewer->addPointCloud<pcl::PointXYZRGB>(cloud_ptr, "sample cloud");
         viewer->setBackgroundColor(0, 0, 0);
         viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud");
-        viewer->addCoordinateSystem(1.0);
+        // viewer->addCoordinateSystem(1.0);
         viewer->initCameraParameters();
 
         float DeltaTime = 0.0f;
+        float TotalTime = 0.0f;
+        
+        timer ComputeTimer = {1000, "Compute"};
+        timer RenderTimer = {1000, "Render"};
+        timer WholeTimer = {1000, "Whole"};
 
         while(!viewer->wasStopped())
         {
+			// measure whole frame time start
             std::chrono::steady_clock::time_point Begin = std::chrono::steady_clock::now();
 
             camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
-
+            
+            // measure start
+            std::chrono::steady_clock::time_point TimeBegin = std::chrono::steady_clock::now();
+            
+            // computing point cloud
             cloud_ptr->points.clear();
             
             uint32_t InsertIndex = 0;
@@ -202,14 +228,37 @@ int main(void)
 
             cloud_ptr->width = (int)cloud_ptr->points.size();
             cloud_ptr->height = 1;
+            
+            // measure compute
+            std::chrono::steady_clock::time_point TimeEnd = std::chrono::steady_clock::now();
+            float Elapsed = std::chrono::duration_cast<std::chrono::microseconds>(TimeEnd - TimeBegin).count() / 1000000.0;
+            PrintAverageTime(&ComputeTimer, Elapsed);
 
-            // display using pcl
+			// measure draw time start
+			TimeBegin = std::chrono::steady_clock::now();
+			
+			// draw point cloud
             viewer->updatePointCloud(cloud_ptr, "sample cloud");
-            viewer->spinOnce(0);
+            viewer->setCameraPosition(5 * std::sin(TotalTime / 2), 0, 5 * std::cos(TotalTime / 2), 0, 0, 0, 0, 1, 0);
+            viewer->spinOnce(0, true);
+			
+			TimeEnd = std::chrono::steady_clock::now();
 
+            Elapsed = std::chrono::duration_cast<std::chrono::microseconds>(TimeEnd - TimeBegin).count() / 1000000.0;
+            PrintAverageTime(&RenderTimer, Elapsed);
+			
+			// measure whole frame time end
             std::chrono::steady_clock::time_point End = std::chrono::steady_clock::now();
             DeltaTime = std::chrono::duration_cast<std::chrono::microseconds>(End - Begin).count() / 1000000.0;
-            PrintFPS(DeltaTime);
+            PrintAverageTime(&WholeTimer, DeltaTime);
+
+			static average Test = {1000, "getFPS()", "fps"};
+			PrintAverage(&Test, viewer->getFPS());
+
+			// std::cout << viewer->getFPS() << '\n';
+			// std::cout << 1.0f / Elapsed << '\n';
+            
+            TotalTime += DeltaTime;
         }
     }
 

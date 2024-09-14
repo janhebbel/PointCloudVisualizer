@@ -235,6 +235,7 @@ int main(void)
                 float PointSize = 1.0f;
                 
                 float DeltaTime = 0.0f;
+                float TotalTime = 0.0f;
                 
                 timer WholeTimer = {.CountTo = 1000, .Msg = "Whole"};
                 
@@ -244,7 +245,9 @@ int main(void)
 				{
 					double FrameTimeStart = glfwGetTime();
 					
-					handle_input(Window, Control, DeltaTime);
+					// handle_input(Window, Control, DeltaTime);
+					Control->position = (v3f){.x = 5 * linalg_sin(TotalTime / 2), .z = 5 * linalg_cos(TotalTime / 2)};
+                    Control->forward = (v3f){.x = -Control->position.x, .y = -Control->position.y, .z = -Control->position.z};
 					
 					camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
 					
@@ -274,6 +277,8 @@ int main(void)
 					PrintAverageTime(&WholeTimer, DeltaTime);
 					
 					FrameCount++;
+					
+					TotalTime += DeltaTime;
 				}
                 
 				//OpenCLRelease(OpenCL);

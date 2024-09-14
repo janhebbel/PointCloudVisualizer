@@ -256,6 +256,7 @@ int main(void)
                 uint16_t *depth_map = (uint16_t *)malloc(depth_map_size);
                 
                 float delta_time = 0.0f;
+                float total_time = 0.0f;
                 
                 timer TimerCompute = {1000};
                 timer TimerWhole = {1000};
@@ -266,7 +267,9 @@ int main(void)
                 {
                     double frame_time_start = glfwGetTime();
                     
-                    handle_input(window, control, delta_time);
+                    // handle_input(window, control, delta_time);
+                    control->position = (v3f){.x = 5 * linalg_sin(total_time / 2), .z = 5 * linalg_cos(total_time / 2)};
+                    control->forward = (v3f){.x = -control->position.x, .y = -control->position.y, .z = -control->position.z};
                     
                     v2u render_dim;
                     glfwGetFramebufferSize(window, (int *)&render_dim.x, (int *)&render_dim.y);
@@ -295,6 +298,8 @@ int main(void)
                     if (FrameCount >= 4) PrintAverageTime(&TimerWhole, delta_time, "Whole");
                     
                     FrameCount++;
+                    
+                    total_time += delta_time;
                 }
                 
                 // Calling this increases the closing time noticeably...

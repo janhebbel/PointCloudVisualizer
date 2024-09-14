@@ -676,6 +676,7 @@ int main(void)
 				uint32_t VertexCount = 0;
 				
 				float DeltaTime = 0.0f;
+                float TotalTime = 0.0f;
                 
                 timer PointCloudComputeTimer = {.FramesToSumUp = 1000};
                 timer RenderTimer = {.FramesToSumUp = 1000};
@@ -688,7 +689,10 @@ int main(void)
 					double FrameTimeStart = GetTimeInSeconds();
 					
 					ProcessWindowMessages();
-					HandleInput(Window, Control, DeltaTime);
+					//HandleInput(Window, Control, DeltaTime);
+                    
+                    Control->position = (v3f){.x = 5 * linalg_sin(TotalTime / 2), .z = 5 * linalg_cos(TotalTime / 2)};
+                    Control->forward = (v3f){.x = -Control->position.x, .y = -Control->position.y, .z = -Control->position.z};
 					
 					RECT ClientRect;
 					GetClientRect(Window, &ClientRect);
@@ -723,8 +727,9 @@ int main(void)
 					// DeltaTime
 					double FrameTimeEnd = GetTimeInSeconds();
 					DeltaTime = (float)(FrameTimeEnd - FrameTimeStart);
-					
 					PrintAverageTime(&FrameTimer, DeltaTime);
+                    
+                    TotalTime += DeltaTime;
 				}
 				
 				//camera_release(Camera);
