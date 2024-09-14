@@ -247,8 +247,8 @@ int main(void)
 					double FrameTimeStart = glfwGetTime();
 					
 					handle_input(Window, Control, DeltaTime);
-					//Control->position = (v3f){.x = 5 * linalg_sin(TotalTime / 2), .z = 5 * linalg_cos(TotalTime / 2)};
-                    //Control->forward = (v3f){.x = -Control->position.x, .y = -Control->position.y, .z = -Control->position.z};
+					// Control->position = (v3f){.x = 5 * linalg_sin(TotalTime / 2), .z = 5 * linalg_cos(TotalTime / 2)};
+                    // Control->forward = (v3f){.x = -Control->position.x, .y = -Control->position.y, .z = -Control->position.z};
 					
 					camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
 					

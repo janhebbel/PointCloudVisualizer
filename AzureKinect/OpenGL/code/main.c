@@ -218,8 +218,8 @@ int main(void)
                     double frame_time_start = glfwGetTime();
 
                     handle_input(window, control, delta_time);
-                    //control->position = (v3f){.x = 5 * linalg_sin(total_time / 2), .z = 5 * linalg_cos(total_time / 2)};
-                    //control->forward = (v3f){.x = -control->position.x, .y = -control->position.y, .z = -control->position.z};
+                    // control->position = (v3f){.x = 5 * linalg_sin(total_time / 2), .z = 5 * linalg_cos(total_time / 2)};
+                    // control->forward = (v3f){.x = -control->position.x, .y = -control->position.y, .z = -control->position.z};
                     
                     dimensions render_dimensions;
                     glfwGetFramebufferSize(window, (int *)&render_dimensions.w, (int *)&render_dimensions.h);
