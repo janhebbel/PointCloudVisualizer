@@ -482,7 +482,7 @@ open_gl *opengl_init(dimensions depth_image_dimensions)
 
 void calculate_point_cloud(open_gl *opengl, v2f *xy_map, uint16_t *depth_map)
 {
-    static timer ComputeTimer = {1000};
+    static average AvgComputeTimeGPU = {1000, "Compute GPU", "ms"};
     static unsigned frame_counter = 0;
     unsigned query_index = frame_counter % QUERY_COUNT;
     
@@ -530,7 +530,7 @@ void calculate_point_cloud(open_gl *opengl, v2f *xy_map, uint16_t *depth_map)
         if(prev_query_available) {
             GLuint64 time_elapsed;
             opengl->glGetQueryObjectui64v(opengl->compute_queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
-            PrintAverageTime(&ComputeTimer, time_elapsed / 1e+9f, "Compute");
+            PrintAverage(&AvgComputeTimeGPU, time_elapsed / 1e+6f);
         }
     }
     
@@ -539,7 +539,7 @@ void calculate_point_cloud(open_gl *opengl, v2f *xy_map, uint16_t *depth_map)
 
 void render_point_cloud(open_gl *opengl, dimensions render_dimensions, view_control *control, float point_size)
 {
-    static timer RenderTimer = {1000};
+    static average AvgRenderTimeGPU = {1000, "Render GPU", "ms"};
     static unsigned frame_counter = 0;
     unsigned query_index = frame_counter % QUERY_COUNT;
     
@@ -591,7 +591,7 @@ void render_point_cloud(open_gl *opengl, dimensions render_dimensions, view_cont
         if(prev_query_available) {
             GLuint64 time_elapsed;
             opengl->glGetQueryObjectui64v(opengl->render_queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
-            PrintAverageTime(&RenderTimer, time_elapsed / 1e+9f, "Draw");
+            PrintAverage(&AvgRenderTimeGPU, time_elapsed / 1e+6f);
         }
     }
     

@@ -376,7 +376,7 @@ opengl_frame *opengl_begin_frame(open_gl *opengl, v2u render_dim)
 
 void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *control/*, uint16_t *depth_map, float *xy_table*/)
 {
-    static timer RenderTimer = {1000};
+    static average AvgRenderGPU = {1000, "RenderGPU", "ms"};
     static unsigned frame_counter = 0;
     unsigned query_index = frame_counter % QUERY_COUNT;
     
@@ -425,7 +425,7 @@ void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *contro
         if(prev_query_available) {
             GLuint64 time_elapsed;
             opengl->glGetQueryObjectui64v(opengl->queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
-            PrintAverageTime(&RenderTimer, time_elapsed / 1e+9f, "Draw");
+            PrintAverage(&AvgRenderGPU, time_elapsed / 1e6f);
         }
     }
     

@@ -6,26 +6,26 @@
 
 #include <GLFW/glfw3.h>
 
-typedef struct s_timer {
-    const int FramesToSumUp;
-    int Count;
-    float Acc;
-} timer;
+typedef struct {
+	const int CountTo;
+	char *Msg;
+	char *Unit;
+	int Count;
+	float Acc;
+} average;
 
-// Prints the average time in ms, assuming DeltaTime is in seconds after accumulating Timer->FramesToSumUp times
-static void PrintAverageTime(timer *Timer, float DeltaTime, const char *text)
-{
-    if(Timer->Count == Timer->FramesToSumUp)
+static void PrintAverage(average *Average, float Value) {
+    if(Average->Count == Average->CountTo)
     {
-        float AvgFrameTime = Timer->Acc / (float)Timer->FramesToSumUp;
-        printf("%s: %f ms\n", text, AvgFrameTime * 1000.0f);
-        Timer->Acc = 0;
-        Timer->Count = 0;
+        float Avg = Average->Acc / (float)Average->CountTo;
+        printf("%s: %f %s\n", Average->Msg, Avg, Average->Unit);
+        Average->Acc = 0;
+        Average->Count = 0;
     }
     else
     {
-        Timer->Acc += DeltaTime;
-        Timer->Count++;
+        Average->Acc += Value;
+        Average->Count++;
     }
 }
 
@@ -258,8 +258,9 @@ int main(void)
                 float delta_time = 0.0f;
                 float total_time = 0.0f;
                 
-                timer TimerCompute = {1000};
-                timer TimerWhole = {1000};
+                average AvgCompute = {1000, "Compute", "ms"};
+				average AvgRenderCPU = {1000, "DrawCPU", "ms"};
+                average AvgWhole = {1000, "Whole", "ms"};
                 
                 unsigned FrameCount = 0;
                 
@@ -267,9 +268,9 @@ int main(void)
                 {
                     double frame_time_start = glfwGetTime();
                     
-                    // handle_input(window, control, delta_time);
-                    control->position = (v3f){.x = 5 * linalg_sin(total_time / 2), .z = 5 * linalg_cos(total_time / 2)};
-                    control->forward = (v3f){.x = -control->position.x, .y = -control->position.y, .z = -control->position.z};
+                    handle_input(window, control, delta_time);
+                    // control->position = (v3f){.x = 5 * linalg_sin(total_time / 2), .z = 5 * linalg_cos(total_time / 2)};
+                    // control->forward = (v3f){.x = -control->position.x, .y = -control->position.y, .z = -control->position.z};
                     
                     v2u render_dim;
                     glfwGetFramebufferSize(window, (int *)&render_dim.x, (int *)&render_dim.y);
@@ -283,19 +284,22 @@ int main(void)
                     double TimeBegin = glfwGetTime();
                     calculate_point_cloud(frame, xy_map, depth_map, depth_map_count);
                     double TimeEnd = glfwGetTime();
-                    if (FrameCount >= 4) PrintAverageTime(&TimerCompute, (float)(TimeEnd - TimeBegin), "Compute");
+                    if (FrameCount >= 4) PrintAverage(&AvgCompute, (float)(TimeEnd - TimeBegin) * 1000);
                     // done with filling the point cloud
                     // 
                     
                     // Render
+					TimeBegin = glfwGetTime();
                     opengl_end_frame(opengl, frame, control);
+					TimeEnd = glfwGetTime();
+					if (FrameCount >= 4) PrintAverage(&AvgRenderCPU, (float)(TimeEnd - TimeBegin) * 1000);
                     
                     glfwSwapBuffers(window);
                     glfwPollEvents();
                     
                     double frame_time_end = glfwGetTime();
                     delta_time = (float)(frame_time_end - frame_time_start);
-                    if (FrameCount >= 4) PrintAverageTime(&TimerWhole, delta_time, "Whole");
+                    if (FrameCount >= 4) PrintAverage(&AvgWhole, delta_time * 1000);
                     
                     FrameCount++;
                     

@@ -518,8 +518,8 @@ float RenderTime = 0;
 int NotLast = 0;
 int Last = 1;
 
-timer ComputeTimer = {.CountTo = 1000, .Msg = "Compute"};
-timer RenderTimer = {.CountTo = 1000, .Msg = "Render"};
+average AvgComputeTimeGPU = {.CountTo = 1000, .Msg = "Compute GPU", "ms"};
+average AvgRenderTimeGPU = {.CountTo = 1000, .Msg = "Render GPU", "ms"};
 
 float GetTimeElapsed(cl_event Event) 
 {
@@ -530,21 +530,21 @@ float GetTimeElapsed(cl_event Event)
     Result |= clGetEventProfilingInfo(Event, CL_PROFILING_COMMAND_COMPLETE, sizeof(TimeEnd), &TimeEnd, NULL);
     assert(Result == CL_SUCCESS);
     
-    return (TimeEnd - TimeStart) / 1e9f;
+    return (TimeEnd - TimeStart) / 1e6f;
 }
 
 void CL_CALLBACK ComputeProfilingCallback(cl_event Event, cl_int EventCommandStatus, void *UserData) 
 {
     int MaybeLast = *(int *)UserData;
     ComputeTime += GetTimeElapsed(Event);
-    if (MaybeLast) PrintAverageTime(&ComputeTimer, ComputeTime);
+    if (MaybeLast) PrintAverage(&AvgComputeTimeGPU, ComputeTime);
 }
 
 void CL_CALLBACK RenderProfilingCallback(cl_event Event, cl_int EventCommandStatus, void *UserData) 
 {
     int MaybeLast = *(int *)UserData;
     RenderTime += GetTimeElapsed(Event);
-    if (MaybeLast) PrintAverageTime(&RenderTimer, RenderTime);
+    if (MaybeLast) PrintAverage(&AvgRenderTimeGPU, RenderTime);
 }
 
 // DONT USE CALLBACK DO IT IN THE FUNCTION USE THE FIRST AND LAST EVENT OF BOTH COMPUTE AND TEXTURE 

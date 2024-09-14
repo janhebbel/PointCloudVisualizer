@@ -426,7 +426,7 @@ open_gl *OpenGLInit(GLsizei WindowWidth, GLsizei WindowHeight)
 
 void OpenGLRenderToScreen(open_gl *OpenGL, uint32_t RenderWidth, uint32_t RenderHeight)
 {
-    static timer DrawTimer = {.CountTo = 1000, .Msg = "Draw"};
+    static average AvgDrawTimeGPU = {.CountTo = 1000, .Msg = "Draw GPU", "ms"};
     static unsigned frame_counter = 0;
     unsigned query_index = frame_counter % QUERY_COUNT;
     
@@ -460,7 +460,7 @@ void OpenGLRenderToScreen(open_gl *OpenGL, uint32_t RenderWidth, uint32_t Render
         if(prev_query_available) {
             GLuint64 time_elapsed;
             OpenGL->glGetQueryObjectui64v(OpenGL->queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
-            PrintAverageTime(&DrawTimer, time_elapsed / 1e+9f);
+            PrintAverage(&AvgDrawTimeGPU, time_elapsed / 1e+6f);
         }
     }
     

@@ -18,27 +18,26 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-typedef struct s_timer {
-    const int CountTo;
-    char *Msg;
-    int Count;
-    float Acc;
-} timer;
+typedef struct {
+	const int CountTo;
+	char *Msg;
+	char *Unit;
+	int Count;
+	float Acc;
+} average;
 
-// Prints the average time in ms, assuming DeltaTime is in seconds after accumulating CountTo times
-static void PrintAverageTime(timer *Timer, float DeltaTime)
-{
-    if(Timer->Count == Timer->CountTo)
+static void PrintAverage(average *Average, float Value) {
+    if(Average->Count == Average->CountTo)
     {
-        float AvgFrameTime = Timer->Acc / (float)Timer->CountTo;
-        printf("%s: %f ms\n", Timer->Msg, AvgFrameTime * 1000.0f);
-        Timer->Acc = 0;
-        Timer->Count = 0;
+        float Avg = Average->Acc / (float)Average->CountTo;
+        printf("%s: %f %s\n", Average->Msg, Avg, Average->Unit);
+        Average->Acc = 0;
+        Average->Count = 0;
     }
     else
     {
-        Timer->Acc += DeltaTime;
-        Timer->Count++;
+        Average->Acc += Value;
+        Average->Count++;
     }
 }
 
@@ -236,8 +235,10 @@ int main(void)
                 
                 float DeltaTime = 0.0f;
                 float TotalTime = 0.0f;
-                
-                timer WholeTimer = {.CountTo = 1000, .Msg = "Whole"};
+
+				average AvgComputeTimeCPU = {.CountTo = 1000, .Msg = "Compute CPU", "ms"};
+				average AvgRenderTimeCPU = {.CountTo = 1000, .Msg = "Render CPU", "ms"};
+                average AvgWholeTime = {.CountTo = 1000, .Msg = "Whole", "ms"};
                 
                 unsigned FrameCount = 0;
 				
@@ -245,9 +246,9 @@ int main(void)
 				{
 					double FrameTimeStart = glfwGetTime();
 					
-					// handle_input(Window, Control, DeltaTime);
-					Control->position = (v3f){.x = 5 * linalg_sin(TotalTime / 2), .z = 5 * linalg_cos(TotalTime / 2)};
-                    Control->forward = (v3f){.x = -Control->position.x, .y = -Control->position.y, .z = -Control->position.z};
+					handle_input(Window, Control, DeltaTime);
+					//Control->position = (v3f){.x = 5 * linalg_sin(TotalTime / 2), .z = 5 * linalg_cos(TotalTime / 2)};
+                    //Control->forward = (v3f){.x = -Control->position.x, .y = -Control->position.y, .z = -Control->position.z};
 					
 					camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
 					
@@ -261,12 +262,15 @@ int main(void)
 						CLGLUpdateSettings(OpenCL, OpenGL, RenderWidth, RenderHeight);
 					}
 					
-					static timer Test = {.CountTo = 1000, .Msg = "CPU"};
 					double Begin = glfwGetTime();
 					OpenCLRenderToTexture(OpenCL, Camera->min_depth, Camera->max_depth, DepthMap, DepthMapWidth, DepthMapHeight, Control);
-					OpenGLRenderToScreen(OpenGL, RenderWidth, RenderHeight);
 					double End = glfwGetTime();
-					PrintAverageTime(&Test, (float)(End - Begin));
+					PrintAverage(&AvgComputeTimeCPU, (float)(End - Begin) * 1000);
+
+					Begin = glfwGetTime();
+					OpenGLRenderToScreen(OpenGL, RenderWidth, RenderHeight);
+					End = glfwGetTime();
+					PrintAverage(&AvgRenderTimeCPU, (float)(End - Begin) * 1000);
                     
 					glfwSwapBuffers(Window);
 					glfwPollEvents();
@@ -274,7 +278,7 @@ int main(void)
 					double FrameTimeEnd = glfwGetTime();
 					DeltaTime = (float)(FrameTimeEnd - FrameTimeStart);
 					
-					PrintAverageTime(&WholeTimer, DeltaTime);
+					PrintAverage(&AvgWholeTime, DeltaTime * 1000);
 					
 					FrameCount++;
 					
