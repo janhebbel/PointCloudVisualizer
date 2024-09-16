@@ -539,7 +539,7 @@ void calculate_point_cloud(open_gl *opengl, v2f *xy_map, uint16_t *depth_map)
 
 void render_point_cloud(open_gl *opengl, dimensions render_dimensions, view_control *control, float point_size)
 {
-    static average AvgRenderTimeGPU = {1000, "Render GPU", "ms"};
+    static average AvgRenderTimeGPU = {1000, "Draw GPU", "ms"};
     static unsigned frame_counter = 0;
     unsigned query_index = frame_counter % QUERY_COUNT;
     

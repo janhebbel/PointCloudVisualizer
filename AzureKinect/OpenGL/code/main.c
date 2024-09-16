@@ -208,7 +208,8 @@ int main(void)
                 float total_time = 0.0f;
 
 				average AvgComputeTimeCPU = {1000, "Compute CPU", "ms"};
-				average AvgRenderTimeCPU = {1000, "Render CPU", "ms"};
+				average AvgRenderTimeCPU = {1000, "Draw CPU", "ms"};
+                average AvgSwapTime = {1000, "Swap", "ms"};
                 average AvgFrameTime = {1000, "Whole", "ms"};
                 
                 unsigned FrameCount = 0;
@@ -229,19 +230,22 @@ int main(void)
 					double begin = glfwGetTime();
                     calculate_point_cloud(opengl, xy_map, depth_map);
 					double end = glfwGetTime();
-					if (FrameCount >= 4) PrintAverage(&AvgComputeTimeCPU, (float)(end - begin) * 1000);
+					PrintAverage(&AvgComputeTimeCPU, (float)(end - begin) * 1000);
 
 					begin = glfwGetTime();
                     render_point_cloud(opengl, render_dimensions, control, point_size);
 					end = glfwGetTime();
-					if (FrameCount >= 4) PrintAverage(&AvgRenderTimeCPU, (float)(end - begin) * 1000);
+					PrintAverage(&AvgRenderTimeCPU, (float)(end - begin) * 1000);
                     
+                    double test1 = glfwGetTime();
                     glfwSwapBuffers(window);
+                    double test2 = glfwGetTime();
+                    PrintAverage(&AvgSwapTime, (float)(test2 - test1) * 1000);
                     glfwPollEvents();
                     
                     double frame_time_end = glfwGetTime();
                     delta_time = (float)(frame_time_end - frame_time_start);
-                    if (FrameCount >= 4) PrintAverage(&AvgFrameTime, delta_time * 1000);
+                    PrintAverage(&AvgFrameTime, delta_time * 1000);
                     
                     total_time += delta_time;
                     FrameCount++;

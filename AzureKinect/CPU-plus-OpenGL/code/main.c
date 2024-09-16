@@ -259,7 +259,8 @@ int main(void)
                 float total_time = 0.0f;
                 
                 average AvgCompute = {1000, "Compute", "ms"};
-				average AvgRenderCPU = {1000, "DrawCPU", "ms"};
+				average AvgRenderCPU = {1000, "Draw CPU", "ms"};
+                average AvgSwap = {1000, "Swap", "ms"};
                 average AvgWhole = {1000, "Whole", "ms"};
                 
                 unsigned FrameCount = 0;
@@ -284,7 +285,7 @@ int main(void)
                     double TimeBegin = glfwGetTime();
                     calculate_point_cloud(frame, xy_map, depth_map, depth_map_count);
                     double TimeEnd = glfwGetTime();
-                    if (FrameCount >= 4) PrintAverage(&AvgCompute, (float)(TimeEnd - TimeBegin) * 1000);
+                    PrintAverage(&AvgCompute, (float)(TimeEnd - TimeBegin) * 1000);
                     // done with filling the point cloud
                     // 
                     
@@ -292,18 +293,21 @@ int main(void)
 					TimeBegin = glfwGetTime();
                     opengl_end_frame(opengl, frame, control);
 					TimeEnd = glfwGetTime();
-					if (FrameCount >= 4) PrintAverage(&AvgRenderCPU, (float)(TimeEnd - TimeBegin) * 1000);
+					PrintAverage(&AvgRenderCPU, (float)(TimeEnd - TimeBegin) * 1000);
                     
+                    TimeBegin = glfwGetTime();
                     glfwSwapBuffers(window);
+                    TimeEnd = glfwGetTime();
+                    PrintAverage(&AvgSwap, (float)(TimeEnd - TimeBegin) * 1000);
                     glfwPollEvents();
-                    
-                    double frame_time_end = glfwGetTime();
-                    delta_time = (float)(frame_time_end - frame_time_start);
-                    if (FrameCount >= 4) PrintAverage(&AvgWhole, delta_time * 1000);
                     
                     FrameCount++;
                     
                     total_time += delta_time;
+                    
+                    double frame_time_end = glfwGetTime();
+                    delta_time = (float)(frame_time_end - frame_time_start);
+                    PrintAverage(&AvgWhole, delta_time * 1000);
                 }
                 
                 // Calling this increases the closing time noticeably...

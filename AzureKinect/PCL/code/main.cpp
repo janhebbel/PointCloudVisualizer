@@ -239,7 +239,7 @@ int main(void)
 			
 			// draw point cloud
             viewer->updatePointCloud(cloud_ptr, "sample cloud");
-            viewer->setCameraPosition(5 * std::sin(TotalTime / 2), 0, 5 * std::cos(TotalTime / 2), 0, 0, 0, 0, 1, 0);
+            // viewer->setCameraPosition(5 * std::sin(TotalTime / 2), 0, 5 * std::cos(TotalTime / 2), 0, 0, 0, 0, 1, 0);
             viewer->spinOnce(0, true);
 			
 			TimeEnd = std::chrono::steady_clock::now();
