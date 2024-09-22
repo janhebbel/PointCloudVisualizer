@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,6 +19,8 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
+FILE *file = NULL;
+
 typedef struct {
 	const int CountTo;
 	char *Msg;
@@ -30,7 +33,7 @@ static void PrintAverage(average *Average, float Value) {
     if(Average->Count == Average->CountTo)
     {
         float Avg = Average->Acc / (float)Average->CountTo;
-        printf("%s: %f %s\n", Average->Msg, Avg, Average->Unit);
+        fprintf(file, "%s: %f %s\n", Average->Msg, Avg, Average->Unit);
         Average->Acc = 0;
         Average->Count = 0;
     }
@@ -241,6 +244,10 @@ int main(void)
                 average AvgWholeTime = {.CountTo = 1000, .Msg = "Whole", "ms"};
                 
                 unsigned FrameCount = 0;
+                
+                // TEMP: outputting text to file not console
+                file = fopen("data.txt", "w");
+                assert(file);
 				
 				while(!glfwWindowShouldClose(Window))
 				{
