@@ -12,8 +12,6 @@
 
 #include "k4a.c"
 
-FILE *file = NULL;
-
 typedef struct {
 	const int CountTo;
 	char *Msg;
@@ -26,8 +24,7 @@ static void PrintAverage(average *Average, float Value) {
 	if(Average->Count == Average->CountTo)
 	{
 		float Avg = Average->Acc / (float)Average->CountTo;
-		fprintf(file, "%s: %f %s\n", Average->Msg, Avg, Average->Unit);
-		fflush(file);
+		fprintf(stdout, "%s: %f %s\n", Average->Msg, Avg, Average->Unit);
 		Average->Acc = 0;
 		Average->Count = 0;
 	}
@@ -37,6 +34,27 @@ static void PrintAverage(average *Average, float Value) {
 		Average->Count++;
 	}
 }
+
+#define PROFILE
+#ifdef PROFILE
+#include <MinHook.h>
+
+uint64_t SwapBufferCount = 0;
+
+typedef BOOL (WINAPI *SwapBuffersFunc)(HDC);
+
+SwapBuffersFunc OriginalSwapBuffers = NULL;
+
+BOOL WINAPI MySwapBuffers(HDC DeviceContext) 
+{
+	// fprintf(stdout, "--- SwapBuffers()\n");
+	
+	SwapBufferCount += 1;
+	
+	return OriginalSwapBuffers(DeviceContext);
+}
+
+#endif
 
 #define clamp(x, low, high) std::max(low, std::min(high, x))
 
@@ -113,6 +131,20 @@ v3f HSV2RGB(v3f HSV)
 
 int main(void)
 {
+#ifdef PROFILE
+		if (MH_Initialize() != MH_OK) {
+			return 1;
+		}
+
+		if (MH_CreateHook(&SwapBuffers, &MySwapBuffers, (LPVOID *)&OriginalSwapBuffers) != MH_OK) {
+			return 1;
+		}
+		
+		if (MH_EnableHook(&SwapBuffers) != MH_OK) {
+			return 1;
+		}
+#endif
+	
 	camera_config config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
 	config.depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED;
 	config.camera_fps = K4A_FRAMES_PER_SECOND_30;
@@ -157,15 +189,15 @@ int main(void)
 		average AvgCompute = {1000, "Compute", "ms"};
 		average AvgRender = {1000, "Render", "ms"};
 		average AvgLoop = {1000, "Loop", "ms"};
-		
-		file = fopen("data.txt", "w");
-		assert(file);
+		average SwapBufferCountAvg = {1000, "SwapBuffers Calls", ""};
 
 		while(!viewer->wasStopped())
 		{
 			// measure whole frame time start
 			std::chrono::steady_clock::time_point Begin = std::chrono::steady_clock::now();
-
+			
+			// fprintf(stdout, "New Frame.\n");
+			
 			camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
 			
 			// measure start
@@ -222,13 +254,18 @@ int main(void)
 			
 			// draw point cloud
 			viewer->updatePointCloud(cloud_ptr, "sample cloud");
-			// viewer->setCameraPosition(5 * std::sin(TotalTime / 2), 0, 5 * std::cos(TotalTime / 2), 0, 0, 0, 0, 1, 0);
+			// viewer->setCameraPosition(6 * std::sin(TotalTime / 700), 0, 6 * std::cos(TotalTime / 700), 0, 0, 0, 0, 1, 0);
 			viewer->spinOnce(0, true);
 			
 			TimeEnd = std::chrono::steady_clock::now();
 
 			Elapsed = std::chrono::duration_cast<std::chrono::microseconds>(TimeEnd - TimeBegin).count() / 1000.0;
 			PrintAverage(&AvgRender, Elapsed);
+			
+#ifdef PROFILE			
+			PrintAverage(&SwapBufferCountAvg, SwapBufferCount);
+			SwapBufferCount = 0;
+#endif
 			
 			// measure whole frame time end
 			std::chrono::steady_clock::time_point End = std::chrono::steady_clock::now();
@@ -238,6 +275,16 @@ int main(void)
 			TotalTime += DeltaTime;
 		}
 	}
+	
+#ifdef PROFILE
+	if (MH_DisableHook(&SwapBuffers) != MH_OK) {
+		return 1;
+	}
+
+	if (MH_Uninitialize() != MH_OK) {
+		return 1;
+	}
+#endif
 
 	return(0);
 }
