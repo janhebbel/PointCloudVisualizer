@@ -35,9 +35,12 @@ static void PrintAverage(average *Average, double Value) {
     }
 }
 
-#define PROFILE
+// #define PROFILE
 #ifdef PROFILE
 #include <MinHook.h>
+
+typedef BOOL (WINAPI *wglSwapIntervalEXTFunc)(int);
+wglSwapIntervalEXTFunc wglSwapIntervalEXT = 0;
 
 int SwapBufferCount = 0;
 double SwapBuffersTime = 0.0;
@@ -201,6 +204,22 @@ int main(void)
         // viewer->addCoordinateSystem(1.0);
         viewer->initCameraParameters();
 
+#ifdef PROFILE
+        HDC DeviceContext = wglGetCurrentDC();
+        HGLRC GLDeviceContext = wglGetCurrentContext();
+        if (wglSwapIntervalEXT == NULL) {
+            if (wglMakeCurrent(DeviceContext, GLDeviceContext)) {
+                wglSwapIntervalEXT = (wglSwapIntervalEXTFunc)wglGetProcAddress("wglSwapIntervalEXT");
+                if (wglSwapIntervalEXT) {
+                    wglSwapIntervalEXT(0);
+                }
+                wglMakeCurrent(0, 0);
+            }
+        }
+
+        Last = std::chrono::steady_clock::now();
+#endif
+
         float DeltaTime = 0.0f;
         float TotalTime = 0.0f;
 
@@ -211,14 +230,18 @@ int main(void)
         average SwapBufferTimeAvg = {1000, "SwapBuffers Time", "ms"};
         average FrameTimeAvg = {1000, "Frame Time", "ms"};
 
-        Last = std::chrono::steady_clock::now();
-
         while(!viewer->wasStopped())
         {
             // measure whole frame time start
             std::chrono::steady_clock::time_point Begin = std::chrono::steady_clock::now();
 
             // fprintf(stdout, "New Frame.\n");
+#ifdef PROFILE
+            HWND Window = GetActiveWindow();
+            for (int i = 0; i < 100; ++i) {
+                RedrawWindow(Window, NULL, NULL, RDW_INVALIDATE);
+            }
+#endif
 
             camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
 
@@ -277,6 +300,7 @@ int main(void)
             // draw point cloud
             viewer->updatePointCloud(cloud_ptr, "sample cloud");
             // viewer->setCameraPosition(6 * std::sin(TotalTime / 700), 0, 6 * std::cos(TotalTime / 700), 0, 0, 0, 0, 1, 0);
+            // viewer->setCameraPosition(0, 0, -1, 0, 0, 0, 0, 1, 0);
             viewer->spinOnce(0, true);
 
             TimeEnd = std::chrono::steady_clock::now();
