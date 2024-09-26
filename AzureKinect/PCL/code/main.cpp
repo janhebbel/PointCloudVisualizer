@@ -35,7 +35,7 @@ static void PrintAverage(average *Average, double Value) {
     }
 }
 
-#define PROFILE
+// #define PROFILE
 #ifdef PROFILE
 #include <MinHook.h>
 #include <GL/gl.h>
@@ -71,6 +71,7 @@ wglSwapIntervalEXTFunc wglSwapIntervalEXT = 0;
 int SwapBufferCount = 0;
 double SwapBuffersTime = 0.0;
 double FrameTime = 0.0;
+double DrawTime = 0.0;
 std::chrono::steady_clock::time_point Last = {};
 
 typedef BOOL (WINAPI *SwapBuffersFunc)(HDC);
@@ -89,7 +90,8 @@ BOOL WINAPI MySwapBuffers(HDC DeviceContext)
         if (prev_query_available) {
             GLuint64 time_elapsed;
             glGetQueryObjectui64v(render_queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
-            fprintf(stdout, "time elapsed: %.3f ms\n", time_elapsed / 1000000.0f);
+            DrawTime += time_elapsed / 1000000.0;
+            // fprintf(stdout, "time elapsed: %.3f ms\n", time_elapsed / 1000000.0);
         }
     }
 
@@ -296,10 +298,11 @@ int main(void)
         float TotalTime = 0.0f;
 
         average AvgCompute = {1000, "Compute", "ms"};
-        average AvgRender = {1000, "Render", "ms"};
+        average AvgRender = {1000, "Render CPU", "ms"};
         average AvgLoop = {1000, "Loop", "ms"};
         average SwapBufferCountAvg = {1000, "SwapBuffers Calls", ""};
         average SwapBufferTimeAvg = {1000, "SwapBuffers Time", "ms"};
+        average AvgRenderGPU = {1000, "Render GPU", "ms"};
         average FrameTimeAvg = {1000, "Frame Time", "ms"};
 
         while(!viewer->wasStopped())
@@ -383,12 +386,15 @@ int main(void)
 #ifdef PROFILE
             SwapBuffersTime /= SwapBufferCount;
             FrameTime /= SwapBufferCount;
+            DrawTime /= SwapBufferCount;
             // fprintf(stdout, "%d, %.3f ms\n", SwapBufferCount, SwapBuffersTime);
             PrintAverage(&SwapBufferCountAvg, SwapBufferCount);
             PrintAverage(&SwapBufferTimeAvg, SwapBuffersTime);
             PrintAverage(&FrameTimeAvg, FrameTime);
+            PrintAverage(&AvgRenderGPU, DrawTime);
             FrameTime = 0.0;
             SwapBuffersTime = 0.0;
+            DrawTime = 0.0;
             SwapBufferCount = 0;
 #endif
 
