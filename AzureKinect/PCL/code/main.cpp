@@ -35,11 +35,37 @@ static void PrintAverage(average *Average, double Value) {
     }
 }
 
-// #define PROFILE
+#define PROFILE
 #ifdef PROFILE
 #include <MinHook.h>
+#include <GL/gl.h>
+
+#define GL_TIME_ELAPSED                   0x88BF
+#define GL_QUERY_RESULT                   0x8866
+#define GL_QUERY_RESULT_AVAILABLE         0x8867
+
+#define QUERY_COUNT 5
+
+typedef uint64_t GLuint64;
+
+typedef void (*type_glGenQueries)(GLsizei, GLuint *);
+typedef void (*type_glBeginQuery)(GLenum, GLuint);
+typedef void (*type_glEndQuery)(GLenum);
+typedef void (*type_glGetQueryObjectiv)(GLuint, GLenum, GLint *);
+typedef void (*type_glGetQueryObjectui64v)(GLuint, GLenum, GLuint64 *);
+
+type_glGenQueries glGenQueries = NULL;
+type_glBeginQuery glBeginQuery = NULL;
+type_glEndQuery   glEndQuery   = NULL;
+type_glGetQueryObjectiv glGetQueryObjectiv = NULL;
+type_glGetQueryObjectui64v glGetQueryObjectui64v = NULL;
+
+GLuint render_queries[QUERY_COUNT];
+uint64_t frame_count = 0;
+int clear_count_per_frame = 0;
 
 typedef BOOL (WINAPI *wglSwapIntervalEXTFunc)(int);
+
 wglSwapIntervalEXTFunc wglSwapIntervalEXT = 0;
 
 int SwapBufferCount = 0;
@@ -53,7 +79,19 @@ SwapBuffersFunc OriginalSwapBuffers = NULL;
 
 BOOL WINAPI MySwapBuffers(HDC DeviceContext) 
 {
-    // fprintf(stdout, "--- SwapBuffers()\n");
+    int query_index = frame_count % QUERY_COUNT;
+    glEndQuery(GL_TIME_ELAPSED);
+
+    int prev_query_index = (query_index + 1) % QUERY_COUNT;
+    if (frame_count >= 4) {
+        GLint prev_query_available;
+        glGetQueryObjectiv(render_queries[prev_query_index], GL_QUERY_RESULT_AVAILABLE, &prev_query_available);
+        if (prev_query_available) {
+            GLuint64 time_elapsed;
+            glGetQueryObjectui64v(render_queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
+            fprintf(stdout, "time elapsed: %.3f ms\n", time_elapsed / 1000000.0f);
+        }
+    }
 
     std::chrono::steady_clock::time_point Begin = std::chrono::steady_clock::now();
 
@@ -64,15 +102,32 @@ BOOL WINAPI MySwapBuffers(HDC DeviceContext)
     double Delta = std::chrono::duration_cast<std::chrono::nanoseconds>(End - Begin).count() / 1000000.0;
     double FrameTimeDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(End - Last).count() / 1000000.0;
 
-    // fprintf(stdout, "Frame Time Acc, SwapBuffersTime: %.3f, %.3f ms\n", FrameTime, SwapBuffersTime);
-
     SwapBuffersTime += Delta;
     SwapBufferCount += 1;
 
     FrameTime += FrameTimeDelta;
     Last = End;
 
+    frame_count += 1;
+    clear_count_per_frame = 0;
+
     return Result;
+}
+
+typedef void (*glClearFunc)(GLbitfield);
+
+glClearFunc OriginalglClear = NULL;
+
+void MyglClear(GLbitfield mask) {
+    // Only start the GPU timer once per frame on the first call to glClear().
+    if (clear_count_per_frame == 0) {
+        clear_count_per_frame += 1;
+        int query_index = frame_count % QUERY_COUNT;
+        glBeginQuery(GL_TIME_ELAPSED, render_queries[query_index]);
+        return;
+    }
+
+    OriginalglClear(mask);
 }
 
 #endif
@@ -161,7 +216,15 @@ int main(void)
         return 1;
     }
 
+    if (MH_CreateHook(&glClear, &MyglClear, (LPVOID *)&OriginalglClear) != MH_OK) {
+        return 1;
+    }
+
     if (MH_EnableHook(&SwapBuffers) != MH_OK) {
+        return 1;
+    }
+
+    if (MH_EnableHook(&glClear) != MH_OK) {
         return 1;
     }
 #endif
@@ -213,9 +276,18 @@ int main(void)
                 if (wglSwapIntervalEXT) {
                     wglSwapIntervalEXT(0);
                 }
-                wglMakeCurrent(0, 0);
+
+                glGenQueries = (type_glGenQueries)wglGetProcAddress("glGenQueries");
+                glBeginQuery = (type_glBeginQuery)wglGetProcAddress("glBeginQuery");
+                glEndQuery = (type_glEndQuery)wglGetProcAddress("glEndQuery");
+                glGetQueryObjectiv = (type_glGetQueryObjectiv)wglGetProcAddress("glGetQueryObjectiv");
+                glGetQueryObjectui64v = (type_glGetQueryObjectui64v)wglGetProcAddress("glGetQueryObjectui64v");
+
+                //wglMakeCurrent(0, 0);
             }
         }
+
+        glGenQueries(QUERY_COUNT, (GLuint *)render_queries);
 
         Last = std::chrono::steady_clock::now();
 #endif
