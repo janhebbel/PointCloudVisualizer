@@ -374,7 +374,7 @@ opengl_frame *opengl_begin_frame(open_gl *opengl, v2u render_dim)
     return(frame);
 }
 
-void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *control/*, uint16_t *depth_map, float *xy_table*/)
+void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *control, bool point_cloud_update/*, uint16_t *depth_map, float *xy_table*/)
 {
     static average AvgRenderGPU = {1000, "Draw GPU", "ms"};
     static unsigned frame_counter = 0;
@@ -392,12 +392,14 @@ void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *contro
     
     //
     // Draw the point cloud.
-    opengl->glNamedBufferData(opengl->vertex_buffer, frame->vertex_count * sizeof(color_point), frame->vertex_array, GL_STATIC_DRAW);
-    
-    opengl->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(color_point), (void *)offsetof(color_point, xyz));
-    opengl->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(color_point), (void *)offsetof(color_point, rgb));
-    opengl->glEnableVertexAttribArray(0);
-    opengl->glEnableVertexAttribArray(1);
+    if (point_cloud_update)
+    {
+        opengl->glNamedBufferData(opengl->vertex_buffer, frame->vertex_count * sizeof(color_point), frame->vertex_array, GL_STATIC_DRAW);
+        opengl->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(color_point), (void *)offsetof(color_point, xyz));
+        opengl->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(color_point), (void *)offsetof(color_point, rgb));
+        opengl->glEnableVertexAttribArray(0);
+        opengl->glEnableVertexAttribArray(1);
+    }
     
     opengl->glUseProgram(opengl->default_program);
     
@@ -418,13 +420,14 @@ void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *contro
     opengl->glEndQuery(GL_TIME_ELAPSED);
     
     // look back 4 frames to make sure all queries are finished once requested
-    unsigned prev_query_index = (query_index - 4) % QUERY_COUNT;
+    unsigned prev_query_index = (query_index + 1) % QUERY_COUNT;
     if (frame_counter >= 4) {
         GLint prev_query_available;
         opengl->glGetQueryObjectiv(opengl->queries[prev_query_index], GL_QUERY_RESULT_AVAILABLE, &prev_query_available);
         if(prev_query_available) {
             GLuint64 time_elapsed;
             opengl->glGetQueryObjectui64v(opengl->queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
+            // printf("Frame %u: GPU %.3f us\n", frame_counter - 4, (double)time_elapsed / 1e3);
             PrintAverage(&AvgRenderGPU, time_elapsed / 1e6f);
         }
     }

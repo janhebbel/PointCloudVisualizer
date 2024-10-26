@@ -1,10 +1,12 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <assert.h>
+// #include <assert.h>
 #include <stdio.h>
 
+#define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
 
 typedef struct {
 	const int CountTo;
@@ -15,7 +17,7 @@ typedef struct {
 } average;
 
 static void PrintAverage(average *Average, float Value) {
-    if(Average->Count == Average->CountTo)
+    if (Average->Count == Average->CountTo)
     {
         float Avg = Average->Acc / (float)Average->CountTo;
         printf("%s: %f %s\n", Average->Msg, Avg, Average->Unit);
@@ -40,6 +42,7 @@ struct scroll_update {
     double yoffset;
     int    updated;
 };
+
 // NOTE: this has to be a global since we can only retrieve the scroll offset in the callback
 static struct scroll_update global_scroll_update;
 
@@ -190,7 +193,7 @@ int main(void)
                 
                 view_control control_ = {
                     .model = mat4_identity(),
-                    .position = {0.0f, 0.0f, 0.0f},
+                    .position = {0.0f, 0.0f, 3.0f},
                     .forward = {0.0f, 0.0f, -1.0f},
                     .up = {0.0f, 1.0f, 0.0f},
                     .fov = 0.18f,
@@ -211,6 +214,10 @@ int main(void)
 				average AvgRenderTimeCPU = {1000, "Draw CPU", "ms"};
                 average AvgSwapTime = {1000, "Swap", "ms"};
                 average AvgFrameTime = {1000, "Whole", "ms"};
+
+                // REMOVE
+                LARGE_INTEGER Frequency;
+                QueryPerformanceFrequency(&Frequency);
                 
                 unsigned FrameCount = 0;
                 
@@ -219,23 +226,36 @@ int main(void)
                     double frame_time_start = glfwGetTime();
 
                     handle_input(window, control, delta_time);
-                    // control->position = (v3f){.x = 5 * linalg_sin(total_time / 2), .z = 5 * linalg_cos(total_time / 2)};
-                    // control->forward = (v3f){.x = -control->position.x, .y = -control->position.y, .z = -control->position.z};
+                    // int is_even = (FrameCount & 1) == 0;
+                    // control->model = translate((v3f){.x = is_even ? -3.f : 3.f});
+                    // control->position = (v3f){.x = linalg_sin(total_time) * 3, .y = linalg_cos(total_time) * 3, .z = 3.0f};
+                    // control->forward = v3f_add(v3f_negate(control->position), (v3f){.z = -3.0f});
                     
                     dimensions render_dimensions;
                     glfwGetFramebufferSize(window, (int *)&render_dimensions.w, (int *)&render_dimensions.h);
-					
-                    camera_get_depth_map(camera, 0, depth_map, depth_map_size);
+
+                    size_t valid_depth_buffer_count = 0;
+                    bool depth_map_update = camera_get_depth_map(camera, 0, depth_map, depth_map_size);
+                    // depth_map_update = true; // update every frame
+                    // if (depth_map_update)
+                    // {
+                    //     printf("Frame %u: UPDATE!\n", FrameCount);
+                    // }
 
 					double begin = glfwGetTime();
-                    calculate_point_cloud(opengl, xy_map, depth_map);
+                    calculate_point_cloud(opengl, xy_map, depth_map, depth_map_update);
 					double end = glfwGetTime();
 					PrintAverage(&AvgComputeTimeCPU, (float)(end - begin) * 1000);
 
+                    // REMOVE
+                    LARGE_INTEGER counter_begin, counter_end;
 					begin = glfwGetTime();
+                    QueryPerformanceCounter(&counter_begin);
                     render_point_cloud(opengl, render_dimensions, control, point_size);
+                    QueryPerformanceCounter(&counter_end);
 					end = glfwGetTime();
 					PrintAverage(&AvgRenderTimeCPU, (float)(end - begin) * 1000);
+                    // printf("Frame %u: CPU %.3f ms\n", FrameCount, (double)(counter_end.QuadPart - counter_begin.QuadPart) / Frequency.QuadPart * 1000.0);
                     
                     double test1 = glfwGetTime();
                     glfwSwapBuffers(window);

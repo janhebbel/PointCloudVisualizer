@@ -55,7 +55,7 @@ typedef struct
 	v3f Color;
 } vertex_out;
 
-typedef vertex_out vertex_program(color_point In, mat4 MVP);
+typedef vertex_out vertex_program(color_point In, mat4 Mvp);
 typedef v3f        pixel_program(v3f HSV);
 
 typedef struct
@@ -296,25 +296,6 @@ static void ProcessWindowMessages(void)
     }
 }
 
-static double GetTimeInSeconds(void)
-{
-    static int64_t PerformanceFrequency;
-    if(!PerformanceFrequency)
-    {
-        LARGE_INTEGER PerformanceFrequencyResult;
-        QueryPerformanceFrequency(&PerformanceFrequencyResult);
-        PerformanceFrequency = PerformanceFrequencyResult.QuadPart;
-    }
-    
-    LARGE_INTEGER PerformanceCounterResult;
-    QueryPerformanceCounter(&PerformanceCounterResult);
-    int64_t PerformanceCounter = PerformanceCounterResult.QuadPart;
-    
-    double TimeInSeconds = (double)PerformanceCounter / (double)PerformanceFrequency;
-    
-    return(TimeInSeconds);
-}
-
 static void HandleInput(HWND Window, view_control *Control, float DeltaTime)
 {
 	// left mouse button pressed
@@ -384,25 +365,26 @@ static void HandleInput(HWND Window, view_control *Control, float DeltaTime)
     }
 }
 
-typedef struct s_timer {
-    const int FramesToSumUp;
-    int Count;
-    float Acc;
-} timer;
+typedef struct s_average {
+	const int CountTo;
+	char *Msg;
+	char *Unit;
+	int Count;
+	double Acc;
+} average;
 
-static void PrintAverageTime(timer *Timer, float DeltaTime)
-{
-    if(Timer->Count == Timer->FramesToSumUp)
+static void PrintAverage(average *Average, double Value) {
+    if (Average->Count == Average->CountTo)
     {
-        float AvgFrameTime = Timer->Acc / (float)Timer->FramesToSumUp;
-        printf("%f ms\n", AvgFrameTime * 1000.0f);
-        Timer->Acc = 0;
-        Timer->Count = 0;
+        double Avg = Average->Acc / (double)Average->CountTo;
+        printf("%s: %f %s\n", Average->Msg, Avg, Average->Unit);
+        Average->Acc = 0;
+        Average->Count = 0;
     }
     else
     {
-        Timer->Acc += DeltaTime;
-        Timer->Count++;
+        Average->Acc += Value;
+        Average->Count++;
     }
 }
 
@@ -467,14 +449,14 @@ static bool ClipCondition(v4f P)
 	return(!(X && Y && Z));
 }
 
-static void ProcessVertices(color_point *VertexArray, uint32_t VertexCount, graphics_pipeline *Pipeline, framebuffer *Framebuffer, depth_buffer *DepthBuffer, mat4 MVP)
+static void ProcessVertices(color_point *VertexArray, uint32_t VertexCount, graphics_pipeline *Pipeline, framebuffer *Framebuffer, depth_buffer *DepthBuffer, mat4 Mvp)
 {
 	for(uint32_t Index = 0; Index < VertexCount; ++Index)
 	{
 		color_point Vertex = VertexArray[Index];
 		
 		// Per Vertex Operations (LOCAL SPACE (=> WORLD SPACE => VIEW SPACE) => CLIP SPACE)
-		vertex_out VertexOut = Pipeline->VertexProgram(Vertex, MVP); 
+		vertex_out VertexOut = Pipeline->VertexProgram(Vertex, Mvp); 
 		
 		// Clipping
 		if(ClipCondition(VertexOut.Position))
@@ -530,11 +512,11 @@ static void ProcessVertices(color_point *VertexArray, uint32_t VertexCount, grap
 	}
 }
 
-vertex_out VertexProgram(color_point In, mat4 MVP)
+vertex_out VertexProgram(color_point In, mat4 Mvp)
 {
 	vertex_out Out;
 	
-	Out.Position = mat4_mul_v4f(MVP, (v4f){In.xyz[0], In.xyz[1], In.xyz[2], 1.0f});
+	Out.Position = mat4_mul_v4f(Mvp, (v4f){In.xyz[0], In.xyz[1], In.xyz[2], 1.0f});
 	Out.Color = (v3f){In.rgb[0], In.rgb[1], In.rgb[2]};
 	
 	return(Out);
@@ -660,10 +642,10 @@ int main(void)
 				
 				view_control Control_ = {
                     .model = mat4_identity(),
-                    .position = {0.0f, 0.0f, 0.0f},
+                    .position = {0.0f, 0.0f, 3.0f},
                     .forward = {0.0f, 0.0f, -1.0f},
                     .up = {0.0f, 1.0f, 0.0f},
-                    .fov = 0.18f,
+                    .fov = 0.157f,
                     .speed = 1.5f,
                     .sensitivity = 0.0003f
                 };
@@ -677,38 +659,46 @@ int main(void)
 				
 				float DeltaTime = 0.0f;
                 float TotalTime = 0.0f;
+
+                LARGE_INTEGER Freq;
+                QueryPerformanceFrequency(&Freq);
                 
-                timer PointCloudComputeTimer = {.FramesToSumUp = 1000};
-                timer RenderTimer = {.FramesToSumUp = 1000};
-                timer FrameTimer = {.FramesToSumUp = 1000};
+                average PointCloudComputeTimer = {1000, "Compute", "ms"};
+                average RenderTimer = {1000, "Render", "ms"};
+                average FrameTimer = {1000, "Frame", "ms\n"};
 
 				ShowWindow(Window, SW_SHOWNORMAL);
 				GlobalRunning = true;
 				while(GlobalRunning)
 				{
-					double FrameTimeStart = GetTimeInSeconds();
+                    LARGE_INTEGER FrameStartCounter, FrameEndCounter;
+                    QueryPerformanceCounter(&FrameStartCounter);
 					
 					ProcessWindowMessages();
 					HandleInput(Window, Control, DeltaTime);
                     
-                    // Control->position = (v3f){.x = 5 * linalg_sin(TotalTime / 2), .z = 5 * linalg_cos(TotalTime / 2)};
-                    // Control->forward = (v3f){.x = -Control->position.x, .y = -Control->position.y, .z = -Control->position.z};
+                    // Control->position = (v3f){.x = linalg_sin(TotalTime) * 3, .y = linalg_cos(TotalTime) * 3, .z = 3.0f};
+                    // Control->forward = v3f_add(v3f_negate(Control->position), (v3f){.z = -3.0f});
 					
 					RECT ClientRect;
 					GetClientRect(Window, &ClientRect);
 					dimensions RenderDimensions = {(uint32_t)ClientRect.right, (uint32_t)ClientRect.bottom};
 					
                     // Depth Data Acquisition
-					camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
+					bool DepthMapUpdate = camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
                     
                     // Point Cloud Computation
-                    double TimeBegin = GetTimeInSeconds();
-					calculate_point_cloud(VertexArray, &VertexCount, xy_map, DepthMap, DepthMapCount);
-                    double TimeEnd = GetTimeInSeconds();
-                    PrintAverageTime(&PointCloudComputeTimer, (float)(TimeEnd - TimeBegin));
+                    LARGE_INTEGER BeginCounter, EndCounter;
+                    QueryPerformanceCounter(&BeginCounter);
+                    if (DepthMapUpdate)
+                    {
+                        calculate_point_cloud(VertexArray, &VertexCount, xy_map, DepthMap, DepthMapCount);
+                    }
+                    QueryPerformanceCounter(&EndCounter);
+                    PrintAverage(&PointCloudComputeTimer, (double)(EndCounter.QuadPart - BeginCounter.QuadPart) / (Freq.QuadPart / 1000.0));
 
                     // Rendering
-                    TimeBegin = GetTimeInSeconds();
+                    QueryPerformanceCounter(&BeginCounter);
                     
 					ClearFramebuffer(Framebuffer, 0.0f, 0.0f, 0.0f, 1.0f);
 					ClearDepthBuffer(DepthBuffer);
@@ -716,18 +706,18 @@ int main(void)
 					mat4 Model = Control->model;
 					mat4 View = look_at(Control->position, v3f_add(Control->position, Control->forward), Control->up);
 					mat4 Proj = perspective(Control->fov, (float)RenderDimensions.w / (float)RenderDimensions.h, 0.1f, 100.0f);
-					mat4 MVP = mat4_mul(Proj, mat4_mul(View, Model));
-					ProcessVertices(VertexArray, VertexCount, Pipeline, Framebuffer, DepthBuffer, MVP);
+					mat4 Mvp = mat4_mul(Proj, mat4_mul(View, Model));
+					ProcessVertices(VertexArray, VertexCount, Pipeline, Framebuffer, DepthBuffer, Mvp);
 					
 					DisplayFramebuffer(Framebuffer, WindowDC, RenderDimensions.w, RenderDimensions.h);
                     
-                    TimeEnd = GetTimeInSeconds();
-                    PrintAverageTime(&RenderTimer, (float)(TimeEnd - TimeBegin));
+                    QueryPerformanceCounter(&EndCounter);
+                    PrintAverage(&RenderTimer, (double)(EndCounter.QuadPart - BeginCounter.QuadPart) / (Freq.QuadPart / 1000.0));
                     
 					// DeltaTime
-					double FrameTimeEnd = GetTimeInSeconds();
-					DeltaTime = (float)(FrameTimeEnd - FrameTimeStart);
-					PrintAverageTime(&FrameTimer, DeltaTime);
+                    QueryPerformanceCounter(&FrameEndCounter);
+					DeltaTime = (float)(FrameEndCounter.QuadPart - FrameStartCounter.QuadPart) / (Freq.QuadPart);
+					PrintAverage(&FrameTimer, (double)DeltaTime * 1000.0);
                     
                     TotalTime += DeltaTime;
 				}

@@ -35,7 +35,7 @@ static void PrintAverage(average *Average, double Value) {
     }
 }
 
-// #define PROFILE
+#define PROFILE
 #ifdef PROFILE
 #include <MinHook.h>
 #include <GL/gl.h>

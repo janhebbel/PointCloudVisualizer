@@ -1,6 +1,7 @@
 #include <k4a/k4a.h>
 
 #include <stdlib.h>
+#include <assert.h>
 
 #include "opengl_renderer.h"
 
@@ -86,8 +87,9 @@ void camera_release(tof_camera *camera)
 
 typedef struct k4a_image_t depth_image;
 
-void camera_get_depth_map(tof_camera *camera, int timeout, uint16_t *depth_map, size_t depth_map_size)
+bool camera_get_depth_map(tof_camera *camera, int timeout, uint16_t *depth_map, size_t depth_map_size)
 {
+    bool depth_map_update = false;
     k4a_capture_t capture = NULL;
     k4a_wait_result_t wait_result = k4a_device_get_capture(camera->device, &capture, timeout);
     if(K4A_WAIT_RESULT_SUCCEEDED == wait_result)
@@ -98,14 +100,16 @@ void camera_get_depth_map(tof_camera *camera, int timeout, uint16_t *depth_map, 
             size_t size = k4a_image_get_size(image);
             assert(size == depth_map_size);
             uint8_t *buffer = k4a_image_get_buffer(image);
-            
+
             memcpy(depth_map, buffer, size);
-            
+
+            depth_map_update = true;
+
             k4a_image_release(image);
         }
-        
         k4a_capture_release(capture);
     }
+    return depth_map_update;
 }
 
 
