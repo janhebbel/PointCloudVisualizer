@@ -426,7 +426,7 @@ open_gl *OpenGLInit(GLsizei WindowWidth, GLsizei WindowHeight)
 
 void OpenGLRenderToScreen(open_gl *OpenGL, uint32_t RenderWidth, uint32_t RenderHeight)
 {
-    static average AvgDrawTimeGPU = {.CountTo = 1000, .Msg = "Draw GPU", "ms"};
+    static average AvgDrawTimeGPU = {.CountTo = 1000, .Msg = "Draw GPU", "ms\n"};
     static unsigned frame_counter = 0;
     unsigned query_index = frame_counter % QUERY_COUNT;
     

@@ -4,6 +4,8 @@ typedef cl_int (*clGetGLContextInfoKHR_fn)(const cl_context_properties* properti
 
 #include "limits.h"
 
+#define Size(Array) (sizeof(Array) / sizeof(Array[0]))
+
 #define QUERY_COUNT 5
 
 typedef struct
@@ -28,7 +30,7 @@ typedef struct
     cl_mem PositionImage;
     cl_mem ColorImage;
 
-    cl_event FirstAndLastEvent[QUERY_COUNT][2];
+    cl_event FirstAndLastEvent[2][QUERY_COUNT][2];
     
     bool SupportsGLContextSharing;
     
@@ -530,7 +532,7 @@ double GetTimeElapsed(cl_event First, cl_event Last)
 // DONT USE CALLBACK DO IT IN THE FUNCTION USE THE FIRST AND LAST EVENT OF BOTH COMPUTE AND TEXTURE 
 // START OF FIRST AND COMPLETE OF LAST EVENT, THEN SUBTRACT; SHOULDNT BE MUCH CPU WAIT TIME
 
-void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint16_t *DepthMap, uint32_t DepthMapWidth, uint32_t DepthMapHeight, view_control *Control)
+void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint16_t *DepthMap, uint32_t DepthMapWidth, uint32_t DepthMapHeight, view_control *Control, bool DepthMapUpdate)
 {
     cl_int Result = 0;
 
@@ -540,11 +542,16 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     static average AvgComputeTimeGPU = {.CountTo = 1000, .Msg = "Compute GPU", "ms"};
     static average AvgRenderTimeGPU = {.CountTo = 1000, .Msg = "Render GPU", "ms"};
 
+    size_t GlobalWorkSize[] = { DepthMapWidth, DepthMapHeight };
+    size_t *LocalWorkSize = NULL;
+
+    cl_event WroteToDepthMapImageEvent = 0;
+    cl_event ComputedPointCloud = 0;
+
     // Writing the depth map data to the opencl image.
     size_t Origin[] = { 0, 0, 0 };
     size_t DepthMapRegion[] = { DepthMapWidth, DepthMapHeight, 1 };
-    
-    cl_event WroteToDepthMapImageEvent;
+
     Result = clEnqueueWriteImage(
         OpenCL->CommandQueue, 
         OpenCL->DepthMapImage, 
@@ -565,12 +572,8 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 5, sizeof(float), &MaxDepth);
     assert(Result == CL_SUCCESS);
     
-    size_t GlobalWorkSize[] = { DepthMapWidth, DepthMapHeight };
-    size_t *LocalWorkSize = NULL;
-    
     //
     // COMPUTING POINT CLOUD
-    cl_event ComputedPointCloud;
     Result = clEnqueueNDRangeKernel(
         OpenCL->CommandQueue, 
         OpenCL->PointCloudComputeKernel, 
@@ -613,8 +616,6 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     Result = clSetKernelArg(OpenCL->PipelineKernel, 4, sizeof(float) * 16, (void *)MVP.p);
     assert(Result == CL_SUCCESS);
         
-	#define Size(Array) (sizeof(Array) / sizeof(Array[0]))
-
     cl_event Events[] = { FilledFramebuffer, FilledDepthBuffer, ComputedPointCloud };
 
     //
@@ -634,30 +635,51 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     Result = clEnqueueReleaseGLObjects(OpenCL->CommandQueue, 1, &OpenCL->Framebuffer, 1, &PipelineDoneEvent, &GLObjectsReleasedEvent);
     assert(Result == CL_SUCCESS);
 
-    OpenCL->FirstAndLastEvent[QueryIndex][0] = WroteToDepthMapImageEvent;
-    OpenCL->FirstAndLastEvent[QueryIndex][1] = PipelineDoneEvent;
+    OpenCL->FirstAndLastEvent[0][QueryIndex][0] = WroteToDepthMapImageEvent;
+    OpenCL->FirstAndLastEvent[0][QueryIndex][1] = ComputedPointCloud;
+
+    OpenCL->FirstAndLastEvent[1][QueryIndex][0] = FilledFramebuffer;
+    OpenCL->FirstAndLastEvent[1][QueryIndex][1] = PipelineDoneEvent;
 
     unsigned int PrevQueryIndex = (QueryIndex + 1) % QUERY_COUNT;
     if (FrameCount >= 4)
     {
         cl_int EventStatus;
-        Result = clGetEventInfo(OpenCL->FirstAndLastEvent[PrevQueryIndex][1], CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &EventStatus, NULL);
+
+        Result = clGetEventInfo(OpenCL->FirstAndLastEvent[0][PrevQueryIndex][1], CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &EventStatus, NULL);
         assert(Result == CL_SUCCESS);
         if (EventStatus == CL_COMPLETE)
         {
-            double TimeElapsed = GetTimeElapsed(OpenCL->FirstAndLastEvent[PrevQueryIndex][0], OpenCL->FirstAndLastEvent[PrevQueryIndex][1]);
+            double TimeElapsed = GetTimeElapsed(OpenCL->FirstAndLastEvent[0][PrevQueryIndex][0], OpenCL->FirstAndLastEvent[0][PrevQueryIndex][1]);
             PrintAverage(&AvgComputeTimeGPU, TimeElapsed);
         }
+        else
+        {
+            assert(false);
+        }
 
-        clReleaseEvent(OpenCL->FirstAndLastEvent[PrevQueryIndex][0]);
-        clReleaseEvent(OpenCL->FirstAndLastEvent[PrevQueryIndex][1]);
+        clReleaseEvent(OpenCL->FirstAndLastEvent[0][PrevQueryIndex][0]);
+        clReleaseEvent(OpenCL->FirstAndLastEvent[0][PrevQueryIndex][1]);
+
+        Result = clGetEventInfo(OpenCL->FirstAndLastEvent[1][PrevQueryIndex][1], CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &EventStatus, NULL);
+        assert(Result == CL_SUCCESS);
+        if (EventStatus == CL_COMPLETE)
+        {
+            double TimeElapsed = GetTimeElapsed(OpenCL->FirstAndLastEvent[1][PrevQueryIndex][0], OpenCL->FirstAndLastEvent[1][PrevQueryIndex][1]);
+            PrintAverage(&AvgRenderTimeGPU, TimeElapsed);
+        }
+        else
+        {
+            assert(false);
+        }
+
+        clReleaseEvent(OpenCL->FirstAndLastEvent[1][PrevQueryIndex][0]);
+        clReleaseEvent(OpenCL->FirstAndLastEvent[1][PrevQueryIndex][1]);
     }
         
     // release events
     clReleaseEvent(GLObjectsReleasedEvent);
-    clReleaseEvent(ComputedPointCloud);
     clReleaseEvent(FilledDepthBuffer);
-    clReleaseEvent(FilledFramebuffer);
     clReleaseEvent(AcquiredGLFramebuffer);
 
     FrameCount++;
