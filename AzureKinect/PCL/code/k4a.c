@@ -126,8 +126,9 @@ void camera_release(tof_camera *camera)
     camera->device = NULL;
 }
 
-void camera_get_depth_map(tof_camera *camera, int timeout, uint16_t *depth_map, size_t depth_map_size)
+bool camera_get_depth_map(tof_camera *camera, int timeout, uint16_t *depth_map, size_t depth_map_size)
 {
+    bool update = false;
     k4a_capture_t capture = NULL;
     k4a_wait_result_t wait_result = k4a_device_get_capture(camera->device, &capture, timeout);
     if(K4A_WAIT_RESULT_SUCCEEDED == wait_result)
@@ -140,12 +141,15 @@ void camera_get_depth_map(tof_camera *camera, int timeout, uint16_t *depth_map, 
             uint8_t *buffer = k4a_image_get_buffer(image);
             
             memcpy(depth_map, buffer, size);
+
+            update = true;
             
             k4a_image_release(image);
         }
         
         k4a_capture_release(capture);
     }
+    return update;
 }
 
 

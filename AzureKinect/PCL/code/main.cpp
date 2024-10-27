@@ -305,6 +305,8 @@ int main(void)
         average AvgRenderGPU = {1000, "Render GPU", "ms"};
         average FrameTimeAvg = {1000, "Frame Time", "ms"};
 
+        viewer->setCameraPosition(0, 0, -3, 0, 0, 0, 0, 1, 0);
+
         while(!viewer->wasStopped())
         {
             // measure whole frame time start
@@ -318,51 +320,55 @@ int main(void)
             }
 #endif
 
-            camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
+            bool DepthMapUpdate = camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
 
             // measure start
             std::chrono::steady_clock::time_point TimeBegin = std::chrono::steady_clock::now();
 
             // computing point cloud
-            cloud_ptr->points.clear();
-
-            uint32_t InsertIndex = 0;
-            for(size_t i = 0; i < DepthMapCount; ++i)
+            //DepthMapUpdate = true;
+            if (DepthMapUpdate)
             {
-                float d = (float)DepthMap[i];
+                cloud_ptr->points.clear();
 
-                pcl::PointXYZRGB Point;
-                Point.x = -XYMap[i].x * d / 1000.0f;
-                Point.y = -XYMap[i].y * d / 1000.0f;
-                Point.z = d / 1000.0f;
-
-                if(Point.z != 0.0f)
+                uint32_t InsertIndex = 0;
+                for(size_t i = 0; i < DepthMapCount; ++i)
                 {
-                    // interpolate
-                    float min_z = 0.5f;
-                    float max_z = 3.86f;
+                    float d = (float)DepthMap[i];
 
-                    float hue = (Point.z - min_z) / (max_z - min_z);
-                    hue = clamp(hue, 0.0f, 1.0f);
+                    pcl::PointXYZRGB Point;
+                    Point.x = -XYMap[i].x * d / 1000.0f;
+                    Point.y = -XYMap[i].y * d / 1000.0f;
+                    Point.z = d / 1000.0f;
 
-                    // the hue of the hsv color goes from red to red so we want to scale with 2/3 which is blue
-                    float range = 2.0f / 3.0f;
+                    if(Point.z != 0.0f)
+                    {
+                        // interpolate
+                        float min_z = 0.5f;
+                        float max_z = 3.86f;
 
-                    hue *= range;
-                    hue = range - hue;
+                        float hue = (Point.z - min_z) / (max_z - min_z);
+                        hue = clamp(hue, 0.0f, 1.0f);
 
-                    v3f RGB = HSV2RGB({ hue, 1.0f, 1.0f });
+                        // the hue of the hsv color goes from red to red so we want to scale with 2/3 which is blue
+                        float range = 2.0f / 3.0f;
 
-                    Point.r = RGB.x * 255;
-                    Point.g = RGB.y * 255;
-                    Point.b = RGB.z * 255;
+                        hue *= range;
+                        hue = range - hue;
 
-                    cloud_ptr->points.push_back(Point);
+                        v3f RGB = HSV2RGB({ hue, 1.0f, 1.0f });
+
+                        Point.r = RGB.x * 255;
+                        Point.g = RGB.y * 255;
+                        Point.b = RGB.z * 255;
+
+                        cloud_ptr->points.push_back(Point);
+                    }
                 }
-            }
 
-            cloud_ptr->width = (int)cloud_ptr->points.size();
-            cloud_ptr->height = 1;
+                cloud_ptr->width = (int)cloud_ptr->points.size();
+                cloud_ptr->height = 1;
+            }
 
             // measure compute
             std::chrono::steady_clock::time_point TimeEnd = std::chrono::steady_clock::now();
@@ -374,8 +380,6 @@ int main(void)
 
             // draw point cloud
             viewer->updatePointCloud(cloud_ptr, "sample cloud");
-            // viewer->setCameraPosition(6 * std::sin(TotalTime / 700), 0, 6 * std::cos(TotalTime / 700), 0, 0, 0, 0, 1, 0);
-            // viewer->setCameraPosition(0, 0, -1, 0, 0, 0, 0, 1, 0);
             viewer->spinOnce(0, true);
 
             TimeEnd = std::chrono::steady_clock::now();
