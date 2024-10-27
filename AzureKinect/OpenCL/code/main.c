@@ -19,8 +19,6 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-FILE *file = NULL;
-
 typedef struct {
 	const int CountTo;
 	char *Msg;
@@ -33,7 +31,7 @@ static void PrintAverage(average *Average, double Value) {
     if(Average->Count == Average->CountTo)
     {
         double Avg = Average->Acc / (double)Average->CountTo;
-        fprintf(file, "%s: %f %s\n", Average->Msg, Avg, Average->Unit);
+        printf("%s: %f %s\n", Average->Msg, Avg, Average->Unit);
         Average->Acc = 0;
         Average->Count = 0;
     }
@@ -245,10 +243,6 @@ int main(void)
                 
                 unsigned FrameCount = 0;
                 
-                // TEMP: outputting text to file not console
-                file = fopen("data.txt", "w");
-                assert(file);
-				
 				while(!glfwWindowShouldClose(Window))
 				{
 					double FrameTimeStart = glfwGetTime();

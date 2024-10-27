@@ -537,8 +537,8 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     static unsigned int FrameCount = 0;
     unsigned int QueryIndex = FrameCount % QUERY_COUNT;
 
-    average AvgComputeTimeGPU = {.CountTo = 1000, .Msg = "Compute GPU", "ms"};
-    average AvgRenderTimeGPU = {.CountTo = 1000, .Msg = "Render GPU", "ms"};
+    static average AvgComputeTimeGPU = {.CountTo = 1000, .Msg = "Compute GPU", "ms"};
+    static average AvgRenderTimeGPU = {.CountTo = 1000, .Msg = "Render GPU", "ms"};
 
     // Writing the depth map data to the opencl image.
     size_t Origin[] = { 0, 0, 0 };
@@ -646,7 +646,6 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
         if (EventStatus == CL_COMPLETE)
         {
             double TimeElapsed = GetTimeElapsed(OpenCL->FirstAndLastEvent[PrevQueryIndex][0], OpenCL->FirstAndLastEvent[PrevQueryIndex][1]);
-            printf("Time Elapsed on the GPU: %f\n", TimeElapsed);
             PrintAverage(&AvgComputeTimeGPU, TimeElapsed);
         }
 
