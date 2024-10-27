@@ -26,13 +26,13 @@ typedef struct {
 	char *Msg;
 	char *Unit;
 	int Count;
-	float Acc;
+	double Acc;
 } average;
 
-static void PrintAverage(average *Average, float Value) {
+static void PrintAverage(average *Average, double Value) {
     if(Average->Count == Average->CountTo)
     {
-        float Avg = Average->Acc / (float)Average->CountTo;
+        double Avg = Average->Acc / (double)Average->CountTo;
         fprintf(file, "%s: %f %s\n", Average->Msg, Avg, Average->Unit);
         Average->Acc = 0;
         Average->Count = 0;
