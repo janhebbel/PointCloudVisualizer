@@ -534,13 +534,19 @@ double GetTimeElapsed(cl_event First, cl_event Last)
 
 void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint16_t *DepthMap, uint32_t DepthMapWidth, uint32_t DepthMapHeight, view_control *Control, bool DepthMapUpdate)
 {
+    double OpenCLComputeTimeBegin = glfwGetTime();
+
     cl_int Result = 0;
 
     static unsigned int FrameCount = 0;
+    static unsigned int DepthUpdateFrameCount = 0;
+    unsigned int ComputeQueryIndex = DepthUpdateFrameCount % QUERY_COUNT;
     unsigned int QueryIndex = FrameCount % QUERY_COUNT;
 
-    static average AvgComputeTimeGPU = {.CountTo = 1000, .Msg = "Compute GPU", "ms"};
-    static average AvgRenderTimeGPU = {.CountTo = 1000, .Msg = "Render GPU", "ms"};
+    static average AvgComputeTimeCPU = {1000, "Compute CPU", "ms"};
+    static average AvgComputeTimeGPU = {1000, "Compute GPU", "ms"};
+    static average AvgRenderTimeCPU  = {1000, "Render CPU", "ms"};
+    static average AvgRenderTimeGPU  = {1000, "Render GPU", "ms"};
 
     size_t GlobalWorkSize[] = { DepthMapWidth, DepthMapHeight };
     size_t *LocalWorkSize = NULL;
@@ -548,40 +554,48 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     cl_event WroteToDepthMapImageEvent = 0;
     cl_event ComputedPointCloud = 0;
 
-    // Writing the depth map data to the opencl image.
-    size_t Origin[] = { 0, 0, 0 };
-    size_t DepthMapRegion[] = { DepthMapWidth, DepthMapHeight, 1 };
+    if (DepthMapUpdate)
+    {
+        DepthUpdateFrameCount += 1;
 
-    Result = clEnqueueWriteImage(
-        OpenCL->CommandQueue, 
-        OpenCL->DepthMapImage, 
-        CL_FALSE, 
-        Origin, DepthMapRegion, 
-        DepthMapWidth * sizeof(DepthMap[0]), 0, 
-        DepthMap, 
-        0, NULL, &WroteToDepthMapImageEvent);
-    assert(Result == CL_SUCCESS);
-    
-    // Set Kernel Arguments and Enqueue the Kernel in the command queue.
-    Result = 0;
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 0, sizeof(cl_mem), &OpenCL->DepthMapImage);
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 1, sizeof(cl_mem), &OpenCL->XYMapImage);
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 2, sizeof(cl_mem), &OpenCL->PositionImage);
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 3, sizeof(cl_mem), &OpenCL->ColorImage);
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 4, sizeof(float), &MinDepth);
-    Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 5, sizeof(float), &MaxDepth);
-    assert(Result == CL_SUCCESS);
-    
-    //
-    // COMPUTING POINT CLOUD
-    Result = clEnqueueNDRangeKernel(
-        OpenCL->CommandQueue, 
-        OpenCL->PointCloudComputeKernel, 
-        2, 
-        NULL, GlobalWorkSize, LocalWorkSize, 
-        1, &WroteToDepthMapImageEvent, 
-        &ComputedPointCloud);
-    assert(Result == CL_SUCCESS);
+        // Writing the depth map data to the opencl image.
+        size_t Origin[] = { 0, 0, 0 };
+        size_t DepthMapRegion[] = { DepthMapWidth, DepthMapHeight, 1 };
+
+        Result = clEnqueueWriteImage(
+            OpenCL->CommandQueue, 
+            OpenCL->DepthMapImage, 
+            CL_FALSE, 
+            Origin, DepthMapRegion, 
+            DepthMapWidth * sizeof(DepthMap[0]), 0, 
+            DepthMap, 
+            0, NULL, &WroteToDepthMapImageEvent);
+        assert(Result == CL_SUCCESS);
+        
+        // Set Kernel Arguments and Enqueue the Kernel in the command queue.
+        Result = 0;
+        Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 0, sizeof(cl_mem), &OpenCL->DepthMapImage);
+        Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 1, sizeof(cl_mem), &OpenCL->XYMapImage);
+        Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 2, sizeof(cl_mem), &OpenCL->PositionImage);
+        Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 3, sizeof(cl_mem), &OpenCL->ColorImage);
+        Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 4, sizeof(float), &MinDepth);
+        Result |= clSetKernelArg(OpenCL->PointCloudComputeKernel, 5, sizeof(float), &MaxDepth);
+        assert(Result == CL_SUCCESS);
+        
+        //
+        // COMPUTING POINT CLOUD
+        Result = clEnqueueNDRangeKernel(
+            OpenCL->CommandQueue, 
+            OpenCL->PointCloudComputeKernel, 
+            2, 
+            NULL, GlobalWorkSize, LocalWorkSize, 
+            1, &WroteToDepthMapImageEvent, 
+            &ComputedPointCloud);
+        assert(Result == CL_SUCCESS);
+    }
+
+    double OpenCLRenderTimeBegin = glfwGetTime();
+    PrintAverage(&AvgComputeTimeCPU, (OpenCLRenderTimeBegin - OpenCLComputeTimeBegin) * 1e3);
     
     // Acquire GL Objects
     cl_event AcquiredGLFramebuffer;
@@ -616,7 +630,15 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     Result = clSetKernelArg(OpenCL->PipelineKernel, 4, sizeof(float) * 16, (void *)MVP.p);
     assert(Result == CL_SUCCESS);
         
-    cl_event Events[] = { FilledFramebuffer, FilledDepthBuffer, ComputedPointCloud };
+    cl_event Events[3];
+    Events[0] = FilledFramebuffer;
+    Events[1] = FilledDepthBuffer;
+    cl_uint EventCount = 2;
+    if (DepthMapUpdate)
+    {
+        Events[2] = ComputedPointCloud;
+        EventCount += 1;
+    }
 
     //
     // RENDERING TO TEXTURE
@@ -626,7 +648,7 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
         OpenCL->PipelineKernel, 
         2, 
         NULL, GlobalWorkSize, LocalWorkSize, 
-        Size(Events), Events, 
+        EventCount, Events, 
         &PipelineDoneEvent);
     assert(Result == CL_SUCCESS);
     
@@ -635,31 +657,44 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     Result = clEnqueueReleaseGLObjects(OpenCL->CommandQueue, 1, &OpenCL->Framebuffer, 1, &PipelineDoneEvent, &GLObjectsReleasedEvent);
     assert(Result == CL_SUCCESS);
 
-    OpenCL->FirstAndLastEvent[0][QueryIndex][0] = WroteToDepthMapImageEvent;
-    OpenCL->FirstAndLastEvent[0][QueryIndex][1] = ComputedPointCloud;
+    PrintAverage(&AvgRenderTimeCPU, (glfwGetTime() - OpenCLRenderTimeBegin) * 1e3);
+
+    if (DepthMapUpdate)
+    {
+        OpenCL->FirstAndLastEvent[0][ComputeQueryIndex][0] = WroteToDepthMapImageEvent;
+        OpenCL->FirstAndLastEvent[0][ComputeQueryIndex][1] = ComputedPointCloud;
+    }
 
     OpenCL->FirstAndLastEvent[1][QueryIndex][0] = FilledFramebuffer;
     OpenCL->FirstAndLastEvent[1][QueryIndex][1] = PipelineDoneEvent;
 
+    unsigned int PrevComputeQueryIndex = (ComputeQueryIndex + 1) % QUERY_COUNT;
     unsigned int PrevQueryIndex = (QueryIndex + 1) % QUERY_COUNT;
     if (FrameCount >= 4)
     {
         cl_int EventStatus;
-
-        Result = clGetEventInfo(OpenCL->FirstAndLastEvent[0][PrevQueryIndex][1], CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &EventStatus, NULL);
-        assert(Result == CL_SUCCESS);
-        if (EventStatus == CL_COMPLETE)
+        
+        if(DepthMapUpdate)
         {
-            double TimeElapsed = GetTimeElapsed(OpenCL->FirstAndLastEvent[0][PrevQueryIndex][0], OpenCL->FirstAndLastEvent[0][PrevQueryIndex][1]);
-            PrintAverage(&AvgComputeTimeGPU, TimeElapsed);
+            Result = clGetEventInfo(OpenCL->FirstAndLastEvent[0][PrevComputeQueryIndex][1], CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &EventStatus, NULL);
+            assert(Result == CL_SUCCESS);
+            if (EventStatus == CL_COMPLETE)
+            {
+                double TimeElapsed = GetTimeElapsed(OpenCL->FirstAndLastEvent[0][PrevComputeQueryIndex][0], OpenCL->FirstAndLastEvent[0][PrevComputeQueryIndex][1]);
+                PrintAverage(&AvgComputeTimeGPU, TimeElapsed);
+            }
+            else
+            {
+                assert(false);
+            }
+
+            clReleaseEvent(OpenCL->FirstAndLastEvent[0][PrevComputeQueryIndex][0]);
+            clReleaseEvent(OpenCL->FirstAndLastEvent[0][PrevComputeQueryIndex][1]);
         }
         else
         {
-            assert(false);
+            PrintAverage(&AvgComputeTimeGPU, 0.0);
         }
-
-        clReleaseEvent(OpenCL->FirstAndLastEvent[0][PrevQueryIndex][0]);
-        clReleaseEvent(OpenCL->FirstAndLastEvent[0][PrevQueryIndex][1]);
 
         Result = clGetEventInfo(OpenCL->FirstAndLastEvent[1][PrevQueryIndex][1], CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &EventStatus, NULL);
         assert(Result == CL_SUCCESS);

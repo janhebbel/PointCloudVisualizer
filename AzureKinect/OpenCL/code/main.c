@@ -223,7 +223,7 @@ int main(void)
                 
                 view_control Control_ = {
                     .model = mat4_identity(),
-                    .position = {0.0f, 0.0f, 0.0f},
+                    .position = {0.0f, 0.0f, 3.0f},
                     .forward = {0.0f, 0.0f, -1.0f},
                     .up = {0.0f, 1.0f, 0.0f},
                     .fov = 0.18f,
@@ -237,8 +237,7 @@ int main(void)
                 float DeltaTime = 0.0f;
                 float TotalTime = 0.0f;
 
-				average AvgComputeTimeCPU = {.CountTo = 1000, .Msg = "Compute CPU", "ms"};
-				average AvgRenderTimeCPU = {.CountTo = 1000, .Msg = "Render CPU", "ms"};
+				average AvgDrawTimeCPU = {.CountTo = 1000, .Msg = "Draw CPU", "ms"};
                 average AvgWholeTime = {.CountTo = 1000, .Msg = "Whole", "ms"};
                 
                 unsigned FrameCount = 0;
@@ -247,10 +246,10 @@ int main(void)
 				{
 					double FrameTimeStart = glfwGetTime();
 					
-					handle_input(Window, Control, DeltaTime);
-					// Control->position = (v3f){.x = 5 * linalg_sin(TotalTime / 2), .z = 5 * linalg_cos(TotalTime / 2)};
-                    // Control->forward = (v3f){.x = -Control->position.x, .y = -Control->position.y, .z = -Control->position.z};
+					// Control->position = (v3f){.x = 3 * linalg_sin(TotalTime), .y = 3 * linalg_cos(TotalTime), .z = 3.0f};
+                    // Control->forward = v3f_add(v3f_negate(Control->position), (v3f){.z = -3.0f});
 					
+					handle_input(Window, Control, DeltaTime);
 					bool DepthMapUpdate = camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
 					
 					uint32_t RenderWidth;
@@ -265,7 +264,9 @@ int main(void)
 					
 					OpenCLRenderToTexture(OpenCL, Camera->min_depth, Camera->max_depth, DepthMap, DepthMapWidth, DepthMapHeight, Control, DepthMapUpdate);
 
+                    double DrawTimeBegin = glfwGetTime();
 					OpenGLRenderToScreen(OpenGL, RenderWidth, RenderHeight);
+                    PrintAverage(&AvgDrawTimeCPU, (glfwGetTime() - DrawTimeBegin) * 1000);
                     
 					glfwSwapBuffers(Window);
 					glfwPollEvents();

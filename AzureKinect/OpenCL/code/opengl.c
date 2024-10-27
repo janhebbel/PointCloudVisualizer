@@ -453,14 +453,14 @@ void OpenGLRenderToScreen(open_gl *OpenGL, uint32_t RenderWidth, uint32_t Render
     OpenGL->glEndQuery(GL_TIME_ELAPSED);
     
     // look back 4 frames to make sure all queries are finished once requested
-    unsigned prev_query_index = (query_index - 4) % QUERY_COUNT;
+    unsigned prev_query_index = (query_index + 1) % QUERY_COUNT;
     if (frame_counter >= 4) {
         GLint prev_query_available;
         OpenGL->glGetQueryObjectiv(OpenGL->queries[prev_query_index], GL_QUERY_RESULT_AVAILABLE, &prev_query_available);
         if(prev_query_available) {
             GLuint64 time_elapsed;
             OpenGL->glGetQueryObjectui64v(OpenGL->queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
-            PrintAverage(&AvgDrawTimeGPU, time_elapsed / 1e+6f);
+            PrintAverage(&AvgDrawTimeGPU, time_elapsed / 1e6);
         }
     }
     
