@@ -369,7 +369,7 @@ opengl_frame *opengl_begin_frame(open_gl *opengl, v2u render_dim)
     
     frame->vertex_array = opengl->vertex_array;
     frame->max_vertex_count = opengl->max_vertex_count;
-    frame->vertex_count = 0;
+    //frame->vertex_count = 0;
     
     return(frame);
 }

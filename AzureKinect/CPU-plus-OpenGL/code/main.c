@@ -278,8 +278,8 @@ int main(void)
                     // @nocheckin
                     // int IsEven = (FrameCount & 1) == 0;
                     // control->position = (v3f){.x = (IsEven ? -1 : 1) * 3.0f, .y = control->position.y, .z = 4.0f};
-                    // control->position = (v3f){.x = linalg_sin(total_time) * 3, .y = linalg_cos(total_time) * 3, .z = 3.0f};
-                    // control->forward = v3f_add(v3f_negate(control->position), (v3f){.z = -3.0f});
+                    control->position = (v3f){.x = linalg_sin(total_time) * 3, .y = linalg_cos(total_time) * 3, .z = 3.0f};
+                    control->forward = v3f_add(v3f_negate(control->position), (v3f){.z = -3.0f});
                     
                     v2u render_dim;
                     glfwGetFramebufferSize(window, (int *)&render_dim.x, (int *)&render_dim.y);
@@ -303,7 +303,10 @@ int main(void)
                     //
                     // filling the point cloud with points
                     double TimeBegin = glfwGetTime();
-                    calculate_point_cloud(frame, xy_map, depth_map, depth_map_count);
+                    if (point_cloud_update)
+                    {
+                        calculate_point_cloud(frame, xy_map, depth_map, depth_map_count);
+                    }
                     double TimeEnd = glfwGetTime();
                     PrintAverage(&AvgCompute, (float)(TimeEnd - TimeBegin) * 1000);
                     // done with filling the point cloud
