@@ -195,7 +195,7 @@ void calculate_point_cloud(opengl_frame *frame, v2f *xy_map, uint16_t *depth_map
 
 int main(void)
 {    
-    srand((unsigned)time(NULL));
+    //srand((unsigned)time(NULL));
 
     if(glfwInit())
     {
@@ -247,10 +247,10 @@ int main(void)
                 
                 view_control control_ = {
                     .model = mat4_identity(),
-                    .position = {0.0f, 1.0f, 0.0f},
+                    .position = {0.0f, 0.0f, 3.0f},
                     .forward = {0.0f, 0.0f, -1.0f},
                     .up = {0.0f, 1.0f, 0.0f},
-                    .fov = 0.24f,
+                    .fov = 0.18f,
                     .speed = 1.5f,
                     .sensitivity = 0.0003f
                 };
@@ -278,8 +278,8 @@ int main(void)
                     // @nocheckin
                     // int IsEven = (FrameCount & 1) == 0;
                     // control->position = (v3f){.x = (IsEven ? -1 : 1) * 3.0f, .y = control->position.y, .z = 4.0f};
-                    // control->position = (v3f){.x = 5 * linalg_sin(total_time / 2), .y = control->position.y, .z = 5 * linalg_cos(total_time / 2)};
-                    // control->forward = (v3f){.x = -control->position.x, .y = -control->position.y, .z = -control->position.z};
+                    // control->position = (v3f){.x = linalg_sin(total_time) * 3, .y = linalg_cos(total_time) * 3, .z = 3.0f};
+                    // control->forward = v3f_add(v3f_negate(control->position), (v3f){.z = -3.0f});
                     
                     v2u render_dim;
                     glfwGetFramebufferSize(window, (int *)&render_dim.x, (int *)&render_dim.y);
@@ -287,18 +287,18 @@ int main(void)
                     opengl_frame *frame = opengl_begin_frame(opengl, render_dim);
                     
                     bool point_cloud_update = camera_get_depth_map(camera, 0, depth_map, depth_map_size);
-                    if (point_cloud_update)
-                    {
-                        printf("Frame %d: UPDATE\n", FrameCount);
-                    }
-                    else
-                    {
-                        printf("Random depth map\n");
-                        for (int i = 0; i < depth_map_count; ++i)
-                        {
-                            depth_map[i] = rand() % (6000 + 1 - 300) + 300;
-                        }
-                    }
+                    // if (point_cloud_update)
+                    // {
+                    //     printf("Frame %d: UPDATE\n", FrameCount);
+                    // }
+                    // else
+                    // {
+                    //     printf("Random depth map\n");
+                    //     for (int i = 0; i < depth_map_count; ++i)
+                    //     {
+                    //         depth_map[i] = rand() % (6000 + 1 - 300) + 300;
+                    //     }
+                    // }
 
                     //
                     // filling the point cloud with points
@@ -316,7 +316,7 @@ int main(void)
                     opengl_end_frame(opengl, frame, control, true);
                     TimeEnd = glfwGetTime();
                     PrintAverage(&AvgRenderCPU, (float)(TimeEnd - TimeBegin) * 1000);
-                    printf("Frame %u: CPU %.3f us\n", FrameCount, (float)(TimeEnd - TimeBegin) * 1e6f);
+                    // printf("Frame %u: CPU %.3f us\n", FrameCount, (float)(TimeEnd - TimeBegin) * 1e6f);
                     
                     TimeBegin = glfwGetTime();
                     glfwSwapBuffers(window);

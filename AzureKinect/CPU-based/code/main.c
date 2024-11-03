@@ -645,7 +645,7 @@ int main(void)
                     .position = {0.0f, 0.0f, 3.0f},
                     .forward = {0.0f, 0.0f, -1.0f},
                     .up = {0.0f, 1.0f, 0.0f},
-                    .fov = 0.157f,
+                    .fov = 0.18f,
                     .speed = 1.5f,
                     .sensitivity = 0.0003f
                 };
