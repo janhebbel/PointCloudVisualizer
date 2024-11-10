@@ -379,6 +379,7 @@ int main(void)
             TimeBegin = std::chrono::steady_clock::now();
 
             // draw point cloud
+            // viewer->setCameraPosition(3.0f * sinf(TotalTime), 3.0f * cosf(TotalTime), -3.0f, 0.0f, 0.0f, 3.0f, 0.0f, 1.0f, 0.0f);
             viewer->updatePointCloud(cloud_ptr, "sample cloud");
             viewer->spinOnce(0, true);
 
@@ -404,8 +405,8 @@ int main(void)
 
             // measure whole frame time end
             std::chrono::steady_clock::time_point End = std::chrono::steady_clock::now();
-            DeltaTime = std::chrono::duration_cast<std::chrono::microseconds>(End - Begin).count() / 1000.0;
-            PrintAverage(&AvgLoop, DeltaTime);
+            DeltaTime = std::chrono::duration_cast<std::chrono::microseconds>(End - Begin).count() / 1e6f;
+            PrintAverage(&AvgLoop, DeltaTime * 1000.0f);
 
             TotalTime += DeltaTime;
         }
