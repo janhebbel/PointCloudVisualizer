@@ -326,7 +326,6 @@ int main(void)
             std::chrono::steady_clock::time_point TimeBegin = std::chrono::steady_clock::now();
 
             // computing point cloud
-            //DepthMapUpdate = true;
             if (DepthMapUpdate)
             {
                 cloud_ptr->points.clear();

@@ -251,6 +251,7 @@ int main(void)
 					
 					handle_input(Window, Control, DeltaTime);
 					bool DepthMapUpdate = camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
+                    // DepthMapUpdate = true;
 					
 					uint32_t RenderWidth;
 					uint32_t RenderHeight;

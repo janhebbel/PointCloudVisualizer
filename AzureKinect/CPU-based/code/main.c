@@ -686,6 +686,7 @@ int main(void)
 					
                     // Depth Data Acquisition
 					bool DepthMapUpdate = camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
+                    // DepthMapUpdate = true;
                     
                     // Point Cloud Computation
                     LARGE_INTEGER BeginCounter, EndCounter;
