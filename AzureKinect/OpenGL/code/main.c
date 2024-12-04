@@ -4,9 +4,9 @@
 // #include <assert.h>
 #include <stdio.h>
 
-#define GLFW_EXPOSE_NATIVE_WIN32
+// #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
+// #include <GLFW/glfw3native.h>
 
 typedef struct {
 	const int CountTo;
@@ -215,10 +215,6 @@ int main(void)
                 average AvgSwapTime = {1000, "Swap", "ms"};
                 average AvgFrameTime = {1000, "Whole", "ms"};
 
-                // REMOVE
-                LARGE_INTEGER Frequency;
-                QueryPerformanceFrequency(&Frequency);
-                
                 unsigned FrameCount = 0;
                 
                 while(!glfwWindowShouldClose(window))
@@ -247,12 +243,8 @@ int main(void)
 					double end = glfwGetTime();
 					PrintAverage(&AvgComputeTimeCPU, (float)(end - begin) * 1000);
 
-                    // REMOVE
-                    LARGE_INTEGER counter_begin, counter_end;
 					begin = glfwGetTime();
-                    QueryPerformanceCounter(&counter_begin);
                     render_point_cloud(opengl, render_dimensions, control, point_size);
-                    QueryPerformanceCounter(&counter_end);
 					end = glfwGetTime();
 					PrintAverage(&AvgRenderTimeCPU, (float)(end - begin) * 1000);
                     // printf("Frame %u: CPU %.3f ms\n", FrameCount, (double)(counter_end.QuadPart - counter_begin.QuadPart) / Frequency.QuadPart * 1000.0);

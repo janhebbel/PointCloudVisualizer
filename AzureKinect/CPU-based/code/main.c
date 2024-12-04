@@ -669,7 +669,7 @@ int main(void)
 
 				ShowWindow(Window, SW_SHOWNORMAL);
 				GlobalRunning = true;
-				while(GlobalRunning)
+				while (GlobalRunning)
 				{
                     LARGE_INTEGER FrameStartCounter, FrameEndCounter;
                     QueryPerformanceCounter(&FrameStartCounter);
