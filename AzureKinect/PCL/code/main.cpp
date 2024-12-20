@@ -303,6 +303,7 @@ int main(void)
         average SwapBufferCountAvg = {1000, "SwapBuffers Calls", ""};
         average SwapBufferTimeAvg = {1000, "SwapBuffers Time", "ms"};
         average AvgRenderGPU = {1000, "Render GPU", "ms"};
+        average AvgFullConversion = {1000, "Full Conversion", "ms"};
         average FrameTimeAvg = {1000, "Frame Time", "ms"};
 
         viewer->setCameraPosition(0, 0, -3, 0, 0, 0, 0, 1, 0);
@@ -328,6 +329,8 @@ int main(void)
             // computing point cloud
             if (DepthMapUpdate)
             {
+                std::chrono::steady_clock::time_point FullConversionTimeBegin = std::chrono::steady_clock::now();
+
                 cloud_ptr->points.clear();
 
                 uint32_t InsertIndex = 0;
@@ -367,6 +370,10 @@ int main(void)
 
                 cloud_ptr->width = (int)cloud_ptr->points.size();
                 cloud_ptr->height = 1;
+
+                std::chrono::steady_clock::time_point FullConversionTimeEnd = std::chrono::steady_clock::now();
+                float ConversionTimeElapsed = std::chrono::duration_cast<std::chrono::microseconds>(FullConversionTimeEnd - FullConversionTimeBegin).count() / 1000.0;
+                PrintAverage(&AvgFullConversion, ConversionTimeElapsed);
             }
 
             // measure compute
@@ -378,7 +385,10 @@ int main(void)
             TimeBegin = std::chrono::steady_clock::now();
 
             // draw point cloud
-            // viewer->setCameraPosition(3.0f * sinf(TotalTime), 3.0f * cosf(TotalTime), -3.0f, 0.0f, 0.0f, 3.0f, 0.0f, 1.0f, 0.0f);
+#define DYNAMIC_TEST 0
+#if DYNAMIC_TEST
+            viewer->setCameraPosition(3.0f * sinf(TotalTime), 3.0f * cosf(TotalTime), -3.0f, 0.0f, 0.0f, 3.0f, 0.0f, 1.0f, 0.0f);
+#endif
             viewer->updatePointCloud(cloud_ptr, "sample cloud");
             viewer->spinOnce(0, true);
 
