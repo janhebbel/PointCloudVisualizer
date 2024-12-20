@@ -666,6 +666,7 @@ int main(void)
                 average PointCloudComputeTimer = {1000, "Compute", "ms"};
                 average RenderTimer = {1000, "Render", "ms"};
                 average FrameTimer = {1000, "Frame", "ms\n"};
+                average FullConversionAvg = {1000, "Full Conversion", "ms"};
 
 				ShowWindow(Window, SW_SHOWNORMAL);
 				GlobalRunning = true;
@@ -677,8 +678,11 @@ int main(void)
 					ProcessWindowMessages();
 					HandleInput(Window, Control, DeltaTime);
                     
-                    // Control->position = (v3f){.x = linalg_sin(TotalTime) * 3, .y = linalg_cos(TotalTime) * 3, .z = 3.0f};
-                    // Control->forward = v3f_add(v3f_negate(Control->position), (v3f){.z = -3.0f});
+#define DYNAMIC_TEST 0
+#if DYNAMIC_TEST
+                    Control->position = (v3f){.x = linalg_sin(TotalTime) * 3, .y = linalg_cos(TotalTime) * 3, .z = 3.0f};
+                    Control->forward = v3f_add(v3f_negate(Control->position), (v3f){.z = -3.0f});
+#endif
 					
 					RECT ClientRect;
 					GetClientRect(Window, &ClientRect);
@@ -686,7 +690,6 @@ int main(void)
 					
                     // Depth Data Acquisition
 					bool DepthMapUpdate = camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
-                    // DepthMapUpdate = true;
                     
                     // Point Cloud Computation
                     LARGE_INTEGER BeginCounter, EndCounter;
@@ -697,6 +700,7 @@ int main(void)
                     }
                     QueryPerformanceCounter(&EndCounter);
                     PrintAverage(&PointCloudComputeTimer, (double)(EndCounter.QuadPart - BeginCounter.QuadPart) / (Freq.QuadPart / 1000.0));
+                    if (DepthMapUpdate) PrintAverage(&FullConversionAvg, (double)(EndCounter.QuadPart - BeginCounter.QuadPart) / (Freq.QuadPart / 1000.0));
 
                     // Rendering
                     QueryPerformanceCounter(&BeginCounter);

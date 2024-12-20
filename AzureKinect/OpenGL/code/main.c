@@ -31,6 +31,8 @@ static void PrintAverage(average *Average, float Value) {
     }
 }
 
+static unsigned int FrameCount = 0;
+
 #include "k4a.c"
 #include "opengl_renderer.c"
 #include "write_to_ply.c"
@@ -214,8 +216,9 @@ int main(void)
 				average AvgRenderTimeCPU = {1000, "Draw CPU", "ms"};
                 average AvgSwapTime = {1000, "Swap", "ms"};
                 average AvgFrameTime = {1000, "Whole", "ms"};
+                average AvgFullConversion = {1000, "Full Conversion Time", "ms"};
 
-                unsigned FrameCount = 0;
+                bool DepthMapUpdates[QUERY_COUNT] = { false };
                 
                 while(!glfwWindowShouldClose(window))
                 {
@@ -224,8 +227,12 @@ int main(void)
                     handle_input(window, control, delta_time);
                     // int is_even = (FrameCount & 1) == 0;
                     // control->model = translate((v3f){.x = is_even ? -3.f : 3.f});
-                    // control->position = (v3f){.x = linalg_sin(total_time) * 3, .y = linalg_cos(total_time) * 3, .z = 3.0f};
-                    // control->forward = v3f_add(v3f_negate(control->position), (v3f){.z = -3.0f});
+
+#define DYNAMIC_TEST 1
+#if DYNAMIC_TEST
+                    control->position = (v3f){.x = linalg_sin(total_time) * 3, .y = linalg_cos(total_time) * 3, .z = 3.0f};
+                    control->forward = v3f_add(v3f_negate(control->position), (v3f){.z = -3.0f});
+#endif
                     
                     dimensions render_dimensions;
                     glfwGetFramebufferSize(window, (int *)&render_dimensions.w, (int *)&render_dimensions.h);
@@ -239,9 +246,15 @@ int main(void)
                     // }
 
 					double begin = glfwGetTime();
-                    calculate_point_cloud(opengl, xy_map, depth_map, depth_map_update);
+                    calculate_point_cloud(opengl, xy_map, depth_map, depth_map_update, DepthMapUpdates);
 					double end = glfwGetTime();
 					PrintAverage(&AvgComputeTimeCPU, (float)(end - begin) * 1000);
+                    if (depth_map_update) 
+                    {
+                        // printf("Depth Map Update For Frame %d\n", FrameCount);
+                        //PrintAverage(&AvgFullConversion, (float)(end - begin) * 1000);
+                        // printf("CPU Full Conversion Count for frame %d: %d\n", FrameCount, AvgFullConversion.Count);
+                    }
 
 					begin = glfwGetTime();
                     render_point_cloud(opengl, render_dimensions, control, point_size);

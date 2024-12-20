@@ -143,7 +143,7 @@ typedef struct
 
 #define opengl_function(name) type_##name *name
 
-#define QUERY_COUNT 5
+#define QUERY_COUNT 10
 
 typedef struct
 {
@@ -503,11 +503,17 @@ open_gl *opengl_init(dimensions depth_image_dimensions)
     return(opengl);
 }
 
-void calculate_point_cloud(open_gl *opengl, v2f *xy_map, uint16_t *depth_map, bool depth_map_update)
+void calculate_point_cloud(open_gl *opengl, v2f *xy_map, uint16_t *depth_map, bool depth_map_update, bool *depth_map_updates)
 {
     static average AvgComputeTimeGPU = {1000, "Compute GPU", "ms"};
-    static unsigned frame_counter = 0;
-    unsigned query_index = frame_counter % QUERY_COUNT;
+    static average AvgFullComputeTimeGPU = {1000, "Full Conversion Time GPU", "ms"};
+
+    unsigned query_index = FrameCount % QUERY_COUNT;
+
+    // static unsigned int FrameCounts[QUERY_COUNT] = {0};
+
+    depth_map_updates[query_index] = depth_map_update;
+    // FrameCounts[query_index] = FrameCount;
 
     // measure time
     opengl->glBeginQuery(GL_TIME_ELAPSED, opengl->compute_queries[query_index]);
@@ -550,24 +556,29 @@ void calculate_point_cloud(open_gl *opengl, v2f *xy_map, uint16_t *depth_map, bo
     
     // look back 4 frames to make sure all queries are finished once requested
     unsigned prev_query_index = (query_index + 1) % QUERY_COUNT;
-    if (frame_counter >= 4) {
+    if (FrameCount >= QUERY_COUNT - 1) {
         GLint prev_query_available;
         opengl->glGetQueryObjectiv(opengl->compute_queries[prev_query_index], GL_QUERY_RESULT_AVAILABLE, &prev_query_available);
         if(prev_query_available) {
             GLuint64 time_elapsed;
             opengl->glGetQueryObjectui64v(opengl->compute_queries[prev_query_index], GL_QUERY_RESULT, &time_elapsed);
             PrintAverage(&AvgComputeTimeGPU, time_elapsed / 1e+6f);
-        }
-    }
-    
-    frame_counter++;
+            if (depth_map_updates[prev_query_index]) 
+            {
+                //PrintAverage(&AvgFullComputeTimeGPU, time_elapsed / 1e6f);
+                // printf("Frame %d | Current Frame: %d | Prev Frame: %d\n", FrameCount, FrameCounts[query_index], FrameCounts[prev_query_index]);
+                // printf("Time elapsed for frame %d: %f ms\n", FrameCount - 4, time_elapsed / 1e6f);
+                // printf("GPU Full Conversion Count for frame %d: %d\n", FrameCount - 4, AvgFullComputeTimeGPU.Count);
+            }
+        } // else { printf("Query not available for %d\n", FrameCount); }
+    } // else { printf("Frame Count less than %d for %d\n", QUERY_COUNT, FrameCount); }
 }
 
 void render_point_cloud(open_gl *opengl, dimensions render_dimensions, view_control *control, float point_size)
 {
     static average AvgRenderTimeGPU = {1000, "Draw GPU", "ms\n"};
-    static unsigned frame_counter = 0;
-    unsigned query_index = frame_counter % QUERY_COUNT;
+
+    unsigned query_index = FrameCount % QUERY_COUNT;
     
     // measure time
     opengl->glBeginQuery(GL_TIME_ELAPSED, opengl->render_queries[query_index]);
@@ -611,7 +622,7 @@ void render_point_cloud(open_gl *opengl, dimensions render_dimensions, view_cont
     
     // look back 4 frames to make sure all queries are finished once requested
     unsigned prev_query_index = (query_index + 1) % QUERY_COUNT;
-    if (frame_counter >= 4) {
+    if (FrameCount >= QUERY_COUNT - 1) {
         GLint prev_query_available;
         opengl->glGetQueryObjectiv(opengl->render_queries[prev_query_index], GL_QUERY_RESULT_AVAILABLE, &prev_query_available);
         if(prev_query_available) {
@@ -620,6 +631,4 @@ void render_point_cloud(open_gl *opengl, dimensions render_dimensions, view_cont
             PrintAverage(&AvgRenderTimeGPU, time_elapsed / 1e+6f);
         }
     }
-    
-    frame_counter++;
 }
