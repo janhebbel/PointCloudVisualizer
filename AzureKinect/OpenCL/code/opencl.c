@@ -547,6 +547,8 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
     static average AvgComputeTimeGPU = {1000, "Compute GPU", "ms"};
     static average AvgRenderTimeCPU  = {1000, "Render CPU", "ms"};
     static average AvgRenderTimeGPU  = {1000, "Render GPU", "ms"};
+    //static average AvgFullComputeTimeCPU = {1000, "Full Compute Time CPU", "ms"};
+    //static average AvgFullComputeTimeGPU = {1000, "Full Compute Time GPU", "ms"};
 
     size_t GlobalWorkSize[] = { DepthMapWidth, DepthMapHeight };
     size_t *LocalWorkSize = NULL;
@@ -556,6 +558,8 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
 
     if (DepthMapUpdate)
     {
+        double FullComputeTimeBegin = glfwGetTime();
+
         DepthUpdateFrameCount += 1;
 
         // Writing the depth map data to the opencl image.
@@ -592,6 +596,10 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
             1, &WroteToDepthMapImageEvent, 
             &ComputedPointCloud);
         assert(Result == CL_SUCCESS);
+
+        double FullComputeTimeEnd = glfwGetTime();
+
+        //PrintAverage(&AvgFullComputeTimeCPU, (FullComputeTimeEnd - FullComputeTimeBegin) * 1e3);
     }
 
     double OpenCLRenderTimeBegin = glfwGetTime();
@@ -682,9 +690,11 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
             {
                 double TimeElapsed = GetTimeElapsed(OpenCL->FirstAndLastEvent[0][PrevComputeQueryIndex][0], OpenCL->FirstAndLastEvent[0][PrevComputeQueryIndex][1]);
                 PrintAverage(&AvgComputeTimeGPU, TimeElapsed);
+                //PrintAverage(&AvgFullComputeTimeGPU, TimeElapsed);
             }
             else
             {
+                printf("Time elapsed not available for Frame %d\n.", FrameCount);
                 assert(false);
             }
 
@@ -705,6 +715,7 @@ void OpenCLRenderToTexture(open_cl *OpenCL, float MinDepth, float MaxDepth, uint
         }
         else
         {
+            printf("Time elapsed not available for Frame %d\n.", FrameCount);
             assert(false);
         }
 

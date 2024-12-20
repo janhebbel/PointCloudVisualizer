@@ -246,8 +246,11 @@ int main(void)
 				{
 					double FrameTimeStart = glfwGetTime();
 					
-					// Control->position = (v3f){.x = 3 * linalg_sin(TotalTime), .y = 3 * linalg_cos(TotalTime), .z = 3.0f};
-                    // Control->forward = v3f_add(v3f_negate(Control->position), (v3f){.z = -3.0f});
+#define DYNAMIC_TEST 0
+#if DYNAMIC_TEST
+					Control->position = (v3f){.x = 3 * linalg_sin(TotalTime), .y = 3 * linalg_cos(TotalTime), .z = 3.0f};
+                    Control->forward = v3f_add(v3f_negate(Control->position), (v3f){.z = -3.0f});
+#endif
 					
 					handle_input(Window, Control, DeltaTime);
 					bool DepthMapUpdate = camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
