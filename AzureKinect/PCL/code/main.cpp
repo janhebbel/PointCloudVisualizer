@@ -72,6 +72,8 @@ int SwapBufferCount = 0;
 double SwapBuffersTime = 0.0;
 double FrameTime = 0.0;
 double DrawTime = 0.0;
+double DrawTimeCPU = 0.0;
+std::chrono::steady_clock::time_point DrawTimeCPUBegin = {};
 std::chrono::steady_clock::time_point Last = {};
 
 typedef BOOL (WINAPI *SwapBuffersFunc)(HDC);
@@ -94,6 +96,10 @@ BOOL WINAPI MySwapBuffers(HDC DeviceContext)
             // fprintf(stdout, "time elapsed: %.3f ms\n", time_elapsed / 1000000.0);
         }
     }
+
+    std::chrono::steady_clock::time_point DrawTimeCPUEnd = std::chrono::steady_clock::now();
+    double DrawTimeCPUDelta = std::chrono::duration_cast<std::chrono::nanoseconds>(DrawTimeCPUEnd - DrawTimeCPUBegin).count() / 1e6f;
+    DrawTimeCPU += DrawTimeCPUDelta;
 
     std::chrono::steady_clock::time_point Begin = std::chrono::steady_clock::now();
 
@@ -121,12 +127,13 @@ typedef void (*glClearFunc)(GLbitfield);
 glClearFunc OriginalglClear = NULL;
 
 void MyglClear(GLbitfield mask) {
-    // Only start the GPU timer once per frame on the first call to glClear().
+    // Only start the GPU timer once per frame on the first call to glClear.
     if (clear_count_per_frame == 0) {
+        DrawTimeCPUBegin = std::chrono::steady_clock::now();
+
         clear_count_per_frame += 1;
         int query_index = frame_count % QUERY_COUNT;
         glBeginQuery(GL_TIME_ELAPSED, render_queries[query_index]);
-        return;
     }
 
     OriginalglClear(mask);
@@ -298,11 +305,12 @@ int main(void)
         float TotalTime = 0.0f;
 
         average AvgCompute = {1000, "Compute", "ms"};
-        average AvgRender = {1000, "Render CPU", "ms"};
+        average AvgRender = {1000, "Spin Once Duration", "ms"};
         average AvgLoop = {1000, "Loop", "ms"};
         average SwapBufferCountAvg = {1000, "SwapBuffers Calls", ""};
         average SwapBufferTimeAvg = {1000, "SwapBuffers Time", "ms"};
-        average AvgRenderGPU = {1000, "Render GPU", "ms"};
+        average DrawTimeCPUAvg = {1000, "Draw Time CPU", "ms"};
+        average AvgRenderGPU = {1000, "Draw Time GPU", "ms"};
         average AvgFullConversion = {1000, "Full Conversion", "ms"};
         average FrameTimeAvg = {1000, "Frame Time", "ms"};
 
@@ -398,17 +406,23 @@ int main(void)
             PrintAverage(&AvgRender, Elapsed);
 
 #ifdef PROFILE
+            // Dividing by SwapBufferCount is required as SwapBuffers() is called multiple times per main loop
+            // iteration. However, RenderDoc (correctly) shows that every frame calls SwapBuffers once, since 1
+            // SwapBuffers call is per definition making up one frame.
             SwapBuffersTime /= SwapBufferCount;
             FrameTime /= SwapBufferCount;
             DrawTime /= SwapBufferCount;
+            DrawTimeCPU /= SwapBufferCount;
             // fprintf(stdout, "%d, %.3f ms\n", SwapBufferCount, SwapBuffersTime);
             PrintAverage(&SwapBufferCountAvg, SwapBufferCount);
             PrintAverage(&SwapBufferTimeAvg, SwapBuffersTime);
             PrintAverage(&FrameTimeAvg, FrameTime);
             PrintAverage(&AvgRenderGPU, DrawTime);
+            PrintAverage(&DrawTimeCPUAvg, DrawTimeCPU);
             FrameTime = 0.0;
             SwapBuffersTime = 0.0;
             DrawTime = 0.0;
+            DrawTimeCPU = 0.0;
             SwapBufferCount = 0;
 #endif
 
