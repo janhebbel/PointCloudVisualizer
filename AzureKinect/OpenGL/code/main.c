@@ -219,16 +219,32 @@ int main(void)
                 average AvgFullConversion = {1000, "Full Conversion Time", "ms"};
 
                 bool DepthMapUpdates[QUERY_COUNT] = { false };
+
+                int FrameCountOther = 0;
+                int DepthImageCount = 0;
                 
                 while(!glfwWindowShouldClose(window))
                 {
                     double frame_time_start = glfwGetTime();
 
+                    FrameCountOther++;
+
+                    if (FrameCountOther % 1000 == 0)
+                    {
+                        printf("Depth Image Count: %d\n", DepthImageCount);
+                        DepthImageCount = 0;
+                    }
+
+                    if (FrameCountOther == INT_MAX)
+                    {
+                        FrameCountOther = 0;
+                    }
+
                     handle_input(window, control, delta_time);
                     // int is_even = (FrameCount & 1) == 0;
                     // control->model = translate((v3f){.x = is_even ? -3.f : 3.f});
 
-#define DYNAMIC_TEST 1
+#define DYNAMIC_TEST 0
 #if DYNAMIC_TEST
                     control->position = (v3f){.x = linalg_sin(total_time) * 3, .y = linalg_cos(total_time) * 3, .z = 3.0f};
                     control->forward = v3f_add(v3f_negate(control->position), (v3f){.z = -3.0f});
@@ -239,6 +255,7 @@ int main(void)
 
                     size_t valid_depth_buffer_count = 0;
                     bool depth_map_update = camera_get_depth_map(camera, 0, depth_map, depth_map_size);
+                    DepthImageCount += depth_map_update;
                     // depth_map_update = true; // update every frame
                     // if (depth_map_update)
                     // {

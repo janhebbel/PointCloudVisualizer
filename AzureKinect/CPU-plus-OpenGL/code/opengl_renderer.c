@@ -8,6 +8,7 @@
 
 typedef char GLchar;
 typedef ptrdiff_t GLsizeiptr;
+typedef ptrdiff_t GLintptr;
 typedef uint64_t GLuint64;
 
 typedef void (APIENTRY *GLDEBUGPROC)(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam);
@@ -57,6 +58,7 @@ typedef void   type_glEndQuery(GLenum target);
 typedef void   type_glGetQueryObjectiv(GLuint id, GLenum pname, GLint * params);
 typedef void   type_glGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 * params);
 typedef void   type_glQueryCounter(GLuint id, GLenum target);
+typedef void   type_glNamedBufferSubData(GLuint, GLintptr, GLsizeiptr, const void*);
 
 typedef struct
 {
@@ -69,7 +71,7 @@ typedef struct
     color_point *vertex_array;
     uint32_t max_vertex_count;
     uint32_t vertex_count;
-    
+
     v2u render_dim;
 } opengl_frame;
 
@@ -80,19 +82,19 @@ typedef struct
 typedef struct
 {
     GLuint default_program;
-    
+
     GLuint vertex_buffer;
-    
+
     GLuint queries[QUERY_COUNT];
-    
+
     color_point *vertex_array;
     uint32_t max_vertex_count;
-    
+
     uint32_t depth_image_width;
     uint32_t depth_image_height;
-    
+
     opengl_frame frame;
-    
+
     opengl_function(glDebugMessageCallback);
     opengl_function(glCreateShader);
     opengl_function(glShaderSource);
@@ -138,6 +140,7 @@ typedef struct
     opengl_function(glGetQueryObjectiv);
     opengl_function(glGetQueryObjectui64v);
     opengl_function(glQueryCounter);
+    opengl_function(glNamedBufferSubData);
 
 } open_gl;
 
@@ -203,13 +206,13 @@ typedef struct
 #define GL_QUERY_RESULT_AVAILABLE               0x8867
 #define GL_TIMESTAMP                            0x8E28
 
-void APIENTRY 
+    void APIENTRY 
 opengl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
 {
     if(severity == GL_DEBUG_SEVERITY_HIGH)
     {
         printf("OPENGL: %s\n", message);
-        
+
         assert(0 && "OpenGL Error occurred.\n");
     }
 }
@@ -221,41 +224,41 @@ static void compile_default_program(open_gl *opengl)
     GLuint vertex_shader = opengl->glCreateShader(GL_VERTEX_SHADER);
     char *vertex_code = GLSL(layout(location = 0) in vec3 a_position;
                              layout(location = 1) in vec3 a_color;
-                             
+
                              layout(location = 0) uniform mat4 mvp;
-                             
+
                              out vec3 color;
-                             
+
                              void main() {
-                                 color = a_color;
-                                 gl_Position = mvp * vec4(a_position, 1.0);
-                                 gl_PointSize = 1.0;
+                             color = a_color;
+                             gl_Position = mvp * vec4(a_position, 1.0);
+                             gl_PointSize = 1.0;
                              }
-                             );
+                            );
     opengl->glShaderSource(vertex_shader, 1, &vertex_code, NULL);
     opengl->glCompileShader(vertex_shader);
-    
+
     GLuint fragment_shader = opengl->glCreateShader(GL_FRAGMENT_SHADER);
     char *fragment_code = GLSL(in vec3 color;
-                               
+
                                layout(location = 0) out vec4 frag_color;
-                               
+
                                void main() {
-                                   // converting from hsv to rgb below
-                                   vec4 k = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-                                   vec3 p = abs(fract(color.xxx + k.xyz) * 6.0 - k.www);
-                                   vec3 color_rgb = color.z * mix(k.xxx, clamp(p - k.xxx, 0.0, 1.0), color.y);
-                                   frag_color = vec4(color_rgb.rgb, 1.0);
+                               // converting from hsv to rgb below
+                               vec4 k = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+                               vec3 p = abs(fract(color.xxx + k.xyz) * 6.0 - k.www);
+                               vec3 color_rgb = color.z * mix(k.xxx, clamp(p - k.xxx, 0.0, 1.0), color.y);
+                               frag_color = vec4(color_rgb.rgb, 1.0);
                                }
-                               );
+                              );
     opengl->glShaderSource(fragment_shader, 1, &fragment_code, NULL);
     opengl->glCompileShader(fragment_shader);
-    
+
     GLuint program = opengl->glCreateProgram();
     opengl->glAttachShader(program, vertex_shader);
     opengl->glAttachShader(program, fragment_shader);
     opengl->glLinkProgram(program);
-    
+
     opengl->glValidateProgram(program);
     GLint linked = false;
     opengl->glGetProgramiv(program, GL_LINK_STATUS, &linked);
@@ -264,34 +267,34 @@ static void compile_default_program(open_gl *opengl)
         char vertex_errors[1024];
         char fragment_errors[1024];
         char program_errors[1024];
-        
+
         opengl->glGetShaderInfoLog(vertex_shader, sizeof(vertex_errors), NULL, vertex_errors);
         opengl->glGetShaderInfoLog(fragment_shader, sizeof(fragment_errors), NULL, fragment_errors);
         opengl->glGetProgramInfoLog(program, sizeof(program_errors), NULL, program_errors);
-        
+
         printf("Error in vertex shader compilation: %s\n", vertex_errors);
         printf("Error in fragment shader compilation: %s\n", fragment_errors);
         printf("Error when linking attached shaders: %s\n", program_errors);
-        
+
         assert(0 && "Shader validation failed!\n");
     }
-    
+
     opengl->default_program = program;
 }
 
 open_gl *opengl_init(depth_image_dimension *dim)
 {
     open_gl *opengl = (open_gl *)malloc(sizeof(open_gl));
-    
+
     opengl->depth_image_width = dim->w;
     opengl->depth_image_height = dim->h;
-    
+
     uint32_t max_vertex_count = dim->w * dim->h;
     opengl->vertex_array = (color_point *)malloc(sizeof(color_point) * max_vertex_count);
     opengl->max_vertex_count = max_vertex_count;
-    
+
 #define get_opengl_function(name) opengl->name = (type_##name *)glfwGetProcAddress(#name);
-    
+
     get_opengl_function(glDebugMessageCallback);
     get_opengl_function(glCreateShader);
     get_opengl_function(glShaderSource);
@@ -337,7 +340,8 @@ open_gl *opengl_init(depth_image_dimension *dim)
     get_opengl_function(glGetQueryObjectiv);
     get_opengl_function(glGetQueryObjectui64v);
     get_opengl_function(glQueryCounter);
-    
+    get_opengl_function(glNamedBufferSubData);
+
 #ifdef DEBUG
     if(opengl->glDebugMessageCallback)
     {
@@ -346,31 +350,37 @@ open_gl *opengl_init(depth_image_dimension *dim)
         opengl->glDebugMessageCallback(opengl_debug_message_callback, NULL);
     }
 #endif
-    
+
     compile_default_program(opengl);
-    
+
     GLuint universal_vertex_array;
     opengl->glGenVertexArrays(1, &universal_vertex_array);
     opengl->glBindVertexArray(universal_vertex_array);
-    
+
     opengl->glGenBuffers(1, &opengl->vertex_buffer);
     opengl->glBindBuffer(GL_ARRAY_BUFFER, opengl->vertex_buffer);
-    
+
     opengl->glGenQueries(QUERY_COUNT, opengl->queries);
-    
+
+    opengl->glNamedBufferData(opengl->vertex_buffer, opengl->max_vertex_count * sizeof(color_point), NULL, GL_STATIC_DRAW);
+    opengl->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(color_point), (void *)offsetof(color_point, xyz));
+    opengl->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(color_point), (void *)offsetof(color_point, rgb));
+    opengl->glEnableVertexAttribArray(0);
+    opengl->glEnableVertexAttribArray(1);
+
     return(opengl);
 }
 
 opengl_frame *opengl_begin_frame(open_gl *opengl, v2u render_dim)
 {
     opengl_frame *frame = &opengl->frame;
-    
+
     frame->render_dim = render_dim;
-    
+
     frame->vertex_array = opengl->vertex_array;
     frame->max_vertex_count = opengl->max_vertex_count;
     //frame->vertex_count = 0;
-    
+
     return(frame);
 }
 
@@ -382,43 +392,46 @@ void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *contro
 
     // measure time
     opengl->glBeginQuery(GL_TIME_ELAPSED, opengl->queries[query_index]);
-    
+
     // start rendering set up
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_PROGRAM_POINT_SIZE);
-    
+
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-    
+
     //
     // Draw the point cloud.
     if (point_cloud_update)
     {
-        opengl->glNamedBufferData(opengl->vertex_buffer, frame->vertex_count * sizeof(color_point), frame->vertex_array, GL_STATIC_DRAW);
-        opengl->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(color_point), (void *)offsetof(color_point, xyz));
-        opengl->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(color_point), (void *)offsetof(color_point, rgb));
-        opengl->glEnableVertexAttribArray(0);
-        opengl->glEnableVertexAttribArray(1);
+        static average Test = {1000, "glBufferSubData", ""};
+        double TestStart = glfwGetTime();
+        // opengl->glNamedBufferData(opengl->vertex_buffer,frame->vertex_count * sizeof(color_point), opengl->vertex_array,
+        //                           GL_STATIC_DRAW);
+        opengl->glNamedBufferSubData(opengl->vertex_buffer, 0, frame->vertex_count * sizeof(color_point),
+                                     frame->vertex_array);
+        double TestEnd = glfwGetTime();
+        PrintAverage(&Test, (float)(TestEnd - TestStart) * 1000);
     }
-    
+
     opengl->glUseProgram(opengl->default_program);
-    
+
     uint32_t render_width = frame->render_dim.x;
     uint32_t render_height = frame->render_dim.y;
-    
+
     mat4 model = control->model;
     mat4 view = look_at(control->position, v3f_add(control->position, control->forward), control->up);
     mat4 proj = perspective(control->fov, (float)render_width / (float)render_height, 0.1f, 100.0f);
     mat4 mvp = mat4_mul(proj, mat4_mul(view, model));
     opengl->glUniformMatrix4fv(0, 1, GL_TRUE, (float *)mvp.p);
-    
+
     glViewport(0, 0, render_width, render_height);
-    
+
     glDrawArrays(GL_POINTS, 0, frame->vertex_count);
-    
+
     // measure time
     opengl->glEndQuery(GL_TIME_ELAPSED);
-    
+
     // look back 4 frames to make sure all queries are finished once requested
     unsigned prev_query_index = (query_index + 1) % QUERY_COUNT;
     if (frame_counter >= QUERY_COUNT - 1) {
@@ -430,6 +443,6 @@ void opengl_end_frame(open_gl *opengl, opengl_frame *frame, view_control *contro
             PrintAverage(&AvgRenderGPU, time_elapsed / 1e6f);
         } else { printf("Query not available!\n"); }
     } else { printf("Frame Count %d less than %d.\n", frame_counter, QUERY_COUNT - 1); }
-    
+
     frame_counter++;
 }

@@ -12,14 +12,24 @@ echo:
 
 echo Debug
 cl %compile_flags% /MT /Od /Zi /D "DEBUG" /D "_DEBUG" /D "UNICODE" /Fe"debug" %files% /link /debug %linker_flags%
+if errorlevel 1 (
+    goto END
+)
 
 echo:
 
 echo Release
 cl %compile_flags% /MT /O2 /D "RELEASE" /D "NDEBUG" /D "UNICODE" /Fe"release" %files% /link %linker_flags%
+if errorlevel 1 (
+    goto END
+)
 
 echo:
 echo Release With Debug Symbols
 cl %compile_flags% /MT /O2 /Zi /D "RELEASE" /D "NDEBUG" /D "UNICODE" /Fe"release_with_debug_info" %files% /link %linker_flags%
+if errorlevel 1 (
+    goto END
+)
 
+:END
 popd

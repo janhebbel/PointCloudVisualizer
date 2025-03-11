@@ -316,10 +316,26 @@ int main(void)
 
         viewer->setCameraPosition(0, 0, -3, 0, 0, 0, 0, 1, 0);
 
+        int FrameCount = 0;
+        int DepthImageCount = 0;
+
         while(!viewer->wasStopped())
         {
             // measure whole frame time start
             std::chrono::steady_clock::time_point Begin = std::chrono::steady_clock::now();
+
+            FrameCount++;
+
+            if (FrameCount % 1000 == 0)
+            {
+                printf("DepthImageCount: %d\n", DepthImageCount);
+                DepthImageCount = 0;
+            }
+
+            if (FrameCount == INT_MAX)
+            {
+                FrameCount = 0;
+            }
 
             // fprintf(stdout, "New Frame.\n");
 #ifdef PROFILE
@@ -330,6 +346,7 @@ int main(void)
 #endif
 
             bool DepthMapUpdate = camera_get_depth_map(Camera, 0, DepthMap, DepthMapSize);
+            DepthImageCount += DepthMapUpdate;
 
             // measure start
             std::chrono::steady_clock::time_point TimeBegin = std::chrono::steady_clock::now();
